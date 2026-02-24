@@ -1,0 +1,58 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Build workspace (created at runtime)
+build-workdir/
+
+# Temporary files
+.tmp/
+*.log
+*.swp
+*.swo
+*~
+
+# Environment files (should be passed via --env-file or -e)
+.env
+.env.local
+.env.*.local
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+.DS_Store
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Documentation files (not needed in image)
+README.md
+TODO.md
+LICENSE
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Docker files (already in Dockerfile)
+docker-compose.yml
+docker-compose.*.yml
+
+# Makefile (not needed in image)
+Makefile
