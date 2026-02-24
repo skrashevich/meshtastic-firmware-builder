@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"meshtastic-firmware-builder/backend/internal/config"
-	"meshtastic-firmware-builder/backend/internal/httpapi"
-	"meshtastic-firmware-builder/backend/internal/jobs"
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/httpapi"
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/jobs"
 )
 
 func main() {

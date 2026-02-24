@@ -1,3 +1,3 @@
-module meshtastic-firmware-builder/backend
+module github.com/skrashevich/meshtastic-firmware-builder/backend
 
-go 1.22
+go 1.26

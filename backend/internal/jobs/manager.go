@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"meshtastic-firmware-builder/backend/internal/config"
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
 )
 
 var (

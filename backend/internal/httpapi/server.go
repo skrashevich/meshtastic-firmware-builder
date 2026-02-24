@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"meshtastic-firmware-builder/backend/internal/config"
-	"meshtastic-firmware-builder/backend/internal/jobs"
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/jobs"
 )
 
 type Server struct {

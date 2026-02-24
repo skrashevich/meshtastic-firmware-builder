@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"meshtastic-firmware-builder/backend/internal/config"
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
 )
 
 func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string, device string, onLine func(string)) error {
