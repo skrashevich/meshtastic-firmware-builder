@@ -156,6 +156,10 @@ export default function App() {
         ? t.queueInfoWithPos.replace("{position}", String(job.queuePosition))
         : t.queueInfo
       : "";
+  const queueEtaNote =
+    job?.status === "queued" && typeof job.queueEtaSeconds === "number" && job.queueEtaSeconds > 0
+      ? t.queueEta.replace("{eta}", formatQueueETA(job.queueEtaSeconds, locale))
+      : "";
 
   return (
     <div className="page-shell">
@@ -226,8 +230,6 @@ export default function App() {
             </span>
           </div>
 
-          {queueNote ? <p className="queue-note">{queueNote}</p> : null}
-
           <div className="devices-grid">
             {devices.length === 0 ? <p className="muted">{t.noDevices}</p> : null}
             {devices.map((device) => (
@@ -268,6 +270,12 @@ export default function App() {
             <p>{t.logsHint}</p>
           </div>
           <pre className="logs-box">
+            {queueNote || queueEtaNote ? (
+              <span className="logs-queue-note-wrap">
+                {queueNote ? <span className="logs-queue-note">{queueNote}</span> : null}
+                {queueEtaNote ? <span className="logs-queue-note">{queueEtaNote}</span> : null}
+              </span>
+            ) : null}
             {logs.join("\n")}
             <div ref={logsTailRef} />
           </pre>
@@ -314,4 +322,28 @@ function formatSize(size: number): string {
     return `${(size / 1024).toFixed(1)} KB`;
   }
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatQueueETA(seconds: number, locale: Locale): string {
+  const totalMinutes = Math.max(1, Math.ceil(seconds / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (locale === "ru") {
+    if (hours > 0 && minutes > 0) {
+      return `${hours} ч ${minutes} мин`;
+    }
+    if (hours > 0) {
+      return `${hours} ч`;
+    }
+    return `${totalMinutes} мин`;
+  }
+
+  if (hours > 0 && minutes > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  if (hours > 0) {
+    return `${hours}h`;
+  }
+  return `${totalMinutes}m`;
 }

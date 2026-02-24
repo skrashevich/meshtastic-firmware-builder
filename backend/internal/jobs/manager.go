@@ -110,7 +110,7 @@ func (m *Manager) CreateJob(repoURL string, ref string, device string) (State, e
 	}
 
 	state := job.snapshot()
-	m.attachQueuePosition(jobID, &state)
+	m.attachQueueMetadata(jobID, &state)
 	return state, nil
 }
 
@@ -120,7 +120,7 @@ func (m *Manager) GetJob(jobID string) (State, error) {
 		return State{}, err
 	}
 	state := job.snapshot()
-	m.attachQueuePosition(jobID, &state)
+	m.attachQueueMetadata(jobID, &state)
 	return state, nil
 }
 
@@ -290,19 +290,75 @@ func (m *Manager) getJob(jobID string) (*Job, error) {
 	return job, nil
 }
 
-func (m *Manager) attachQueuePosition(jobID string, state *State) {
+func (m *Manager) attachQueueMetadata(jobID string, state *State) {
 	if state == nil || state.Status != StatusQueued {
 		return
 	}
 
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	position := 0
 	for index, queuedID := range m.queueOrder {
 		if queuedID == jobID {
-			position := index + 1
+			position = index + 1
 			state.QueuePosition = &position
-			return
+			break
 		}
+	}
+	if position < 1 {
+		return
+	}
+
+	workers := m.cfg.ConcurrentBuilds
+	if workers < 1 {
+		return
+	}
+
+	runningCount := 0
+	totalDuration := time.Duration(0)
+	durationCount := 0
+	for _, job := range m.jobs {
+		job.mu.RLock()
+		status := job.Status
+		startedAt := job.StartedAt
+		finishedAt := job.FinishedAt
+		job.mu.RUnlock()
+
+		if status == StatusRunning {
+			runningCount++
+		}
+		if startedAt == nil || finishedAt == nil {
+			continue
+		}
+
+		duration := finishedAt.Sub(*startedAt)
+		if duration <= 0 {
+			continue
+		}
+		totalDuration += duration
+		durationCount++
+	}
+
+	jobsAhead := position - 1
+	jobsBeforeStart := runningCount + jobsAhead
+	batchesBeforeStart := jobsBeforeStart / workers
+	if batchesBeforeStart < 1 {
+		return
+	}
+
+	averageDuration := m.cfg.BuildTimeout / 2
+	if durationCount > 0 {
+		averageDuration = totalDuration / time.Duration(durationCount)
+	}
+	if averageDuration <= 0 {
+		averageDuration = 10 * time.Minute
+	}
+
+	estimatedWait := time.Duration(batchesBeforeStart) * averageDuration
+	estimatedSeconds := int(estimatedWait.Round(time.Second).Seconds())
+	if estimatedSeconds > 0 {
+		state.QueueETASeconds = &estimatedSeconds
 	}
 }
 

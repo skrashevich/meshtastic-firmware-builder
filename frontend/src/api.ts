@@ -15,6 +15,7 @@ export interface JobState {
   device: string;
   status: JobStatus;
   queuePosition?: number;
+  queueEtaSeconds?: number;
   createdAt: string;
   startedAt?: string;
   finishedAt?: string;

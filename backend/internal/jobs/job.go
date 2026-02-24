@@ -30,20 +30,21 @@ func (a Artifact) AbsolutePath() string {
 }
 
 type State struct {
-	ID            string      `json:"id"`
-	RepoURL       string      `json:"repoUrl"`
-	Ref           string      `json:"ref,omitempty"`
-	Device        string      `json:"device"`
-	Status        Status      `json:"status"`
-	QueuePosition *int        `json:"queuePosition,omitempty"`
-	CreatedAt     time.Time   `json:"createdAt"`
-	StartedAt     *time.Time  `json:"startedAt,omitempty"`
-	FinishedAt    *time.Time  `json:"finishedAt,omitempty"`
-	Error         string      `json:"error,omitempty"`
-	Artifacts     []Artifact  `json:"artifacts"`
-	LogLines      int         `json:"logLines"`
-	Logs          []string    `json:"-"`
-	Internal      interface{} `json:"-"`
+	ID              string      `json:"id"`
+	RepoURL         string      `json:"repoUrl"`
+	Ref             string      `json:"ref,omitempty"`
+	Device          string      `json:"device"`
+	Status          Status      `json:"status"`
+	QueuePosition   *int        `json:"queuePosition,omitempty"`
+	QueueETASeconds *int        `json:"queueEtaSeconds,omitempty"`
+	CreatedAt       time.Time   `json:"createdAt"`
+	StartedAt       *time.Time  `json:"startedAt,omitempty"`
+	FinishedAt      *time.Time  `json:"finishedAt,omitempty"`
+	Error           string      `json:"error,omitempty"`
+	Artifacts       []Artifact  `json:"artifacts"`
+	LogLines        int         `json:"logLines"`
+	Logs            []string    `json:"-"`
+	Internal        interface{} `json:"-"`
 }
 
 type Job struct {

@@ -188,15 +188,19 @@ a:focus {
   font-size: 0.9rem;
 }
 
-.queue-note {
-  margin: 10px 0 0;
-  border: 1px solid #d8c588;
-  border-radius: 10px;
-  background: #fff9e9;
-  color: #6f5d1b;
-  padding: 8px 10px;
-  font-size: 0.9rem;
+.logs-queue-note-wrap {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.logs-queue-note {
+  display: block;
+  color: #ffe08a;
   font-weight: 600;
+}
+
+.logs-queue-note + .logs-queue-note {
+  margin-top: 4px;
 }
 
 .status-chip {

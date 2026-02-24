@@ -166,7 +166,7 @@ In Docker Compose mode, frontend proxies `/api/*` to backend internally, so brow
   - Creates build job
 - `GET /api/jobs/{jobId}`
   - Returns current status (`queued|running|success|failed|cancelled`)
-  - For queued jobs, response may include `queuePosition` (1-based)
+  - For queued jobs, response may include `queuePosition` (1-based) and `queueEtaSeconds` (approximate wait time)
 - `GET /api/jobs/{jobId}/logs`
   - Returns current log snapshot
 - `GET /api/jobs/{jobId}/logs/stream`

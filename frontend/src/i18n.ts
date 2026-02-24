@@ -21,6 +21,7 @@ type Dictionary = {
   logsHint: string;
   queueInfo: string;
   queueInfoWithPos: string;
+  queueEta: string;
   autoScrollOn: string;
   autoScrollOff: string;
   clearLogs: string;
@@ -53,7 +54,8 @@ export const dict: Record<Locale, Dictionary> = {
     noArtifacts: "Файлы пока недоступны",
     logsHint: "Логи обновляются в реальном времени через SSE",
     queueInfo: "Запрос ожидает в очереди",
-    queueInfoWithPos: "Запрос ожидает в очереди. Позиция: #{position}",
+    queueInfoWithPos: "Запрос ожидает в очереди. Позиция: {position}",
+    queueEta: "Оценка ожидания: ~{eta}",
     autoScrollOn: "Автопрокрутка: вкл",
     autoScrollOff: "Автопрокрутка: выкл",
     clearLogs: "Очистить логи",
@@ -90,7 +92,8 @@ export const dict: Record<Locale, Dictionary> = {
     noArtifacts: "No files available yet",
     logsHint: "Logs are streamed in real time via SSE",
     queueInfo: "Build request is waiting in queue",
-    queueInfoWithPos: "Build request is waiting in queue. Position: #{position}",
+    queueInfoWithPos: "Build request is waiting in queue. Position: {position}",
+    queueEta: "Estimated wait: ~{eta}",
     autoScrollOn: "Autoscroll: on",
     autoScrollOff: "Autoscroll: off",
     clearLogs: "Clear logs",
