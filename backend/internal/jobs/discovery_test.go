@@ -18,6 +18,7 @@ func TestListVariantDirectories(t *testing.T) {
 
 	dirs := []string{
 		"esp32/tbeam",
+		"esp32/t-deck",
 		"esp32/heltec-v3",
 		"esp32/.internal",
 		"esp32/bad name",
@@ -32,6 +33,9 @@ func TestListVariantDirectories(t *testing.T) {
 
 	if err := os.WriteFile(filepath.Join(variantsDir, "esp32", "tbeam", "platformio.ini"), []byte("[env:tbeam]\n"), 0o644); err != nil {
 		t.Fatalf("create tbeam platformio.ini: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(variantsDir, "esp32", "t-deck", "platformio.ini"), []byte("[env:t-deck]\n[env:t-deck-tft]\n"), 0o644); err != nil {
+		t.Fatalf("create t-deck platformio.ini: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(variantsDir, "esp32", "heltec-v3", "platformio.ini"), []byte("[env:heltec-v3]\n"), 0o644); err != nil {
 		t.Fatalf("create heltec-v3 platformio.ini: %v", err)
@@ -55,7 +59,7 @@ func TestListVariantDirectories(t *testing.T) {
 		t.Fatalf("listVariantDirectories failed: %v", err)
 	}
 
-	want := []string{"esp32/heltec-v3", "esp32/tbeam", "nrf52840/tbeam"}
+	want := []string{"heltec-v3", "t-deck", "t-deck-tft", "tbeam", "tbeam_nrf"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected variants: got=%v want=%v", got, want)
 	}
@@ -89,6 +93,37 @@ func TestFindVariantProjectPath(t *testing.T) {
 	if project.AbsolutePath != want {
 		t.Fatalf("unexpected project path: got=%q want=%q", project.AbsolutePath, want)
 	}
+	if project.EnvName != "tbeam_esp32" {
+		t.Fatalf("unexpected env name: got=%q want=%q", project.EnvName, "tbeam_esp32")
+	}
+}
+
+func TestFindVariantProjectByEnvTarget(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	variantsDir := filepath.Join(root, "variants")
+	if err := os.MkdirAll(filepath.Join(variantsDir, "esp32", "t-deck"), 0o755); err != nil {
+		t.Fatalf("create esp32/t-deck: %v", err)
+	}
+
+	content := "[env:t-deck]\n[env:t-deck-tft]\n"
+	if err := os.WriteFile(filepath.Join(variantsDir, "esp32", "t-deck", "platformio.ini"), []byte(content), 0o644); err != nil {
+		t.Fatalf("create t-deck config: %v", err)
+	}
+
+	project, err := findVariantProject(root, "t-deck-tft")
+	if err != nil {
+		t.Fatalf("findVariantProject failed: %v", err)
+	}
+
+	wantPath := filepath.Join(variantsDir, "esp32", "t-deck")
+	if project.AbsolutePath != wantPath {
+		t.Fatalf("unexpected project path: got=%q want=%q", project.AbsolutePath, wantPath)
+	}
+	if project.EnvName != "t-deck-tft" {
+		t.Fatalf("unexpected env name: got=%q want=%q", project.EnvName, "t-deck-tft")
+	}
 }
 
 func TestFindVariantProjectRejectsAmbiguousName(t *testing.T) {
@@ -115,14 +150,13 @@ func TestFindVariantProjectRejectsAmbiguousName(t *testing.T) {
 	}
 }
 
-func TestExtractPlatformIOEnvName(t *testing.T) {
+func TestExtractPlatformIOEnvNames(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		content     string
-		expectedEnv string
-		expectError bool
+		name         string
+		content      string
+		expectedEnvs []string
 	}{
 		{
 			name: "simple env name",
@@ -130,8 +164,7 @@ func TestExtractPlatformIOEnvName(t *testing.T) {
 board = esp32dev
 framework = arduino
 `,
-			expectedEnv: "tbeam",
-			expectError: false,
+			expectedEnvs: []string{"tbeam"},
 		},
 		{
 			name: "env name with slash",
@@ -139,8 +172,7 @@ framework = arduino
 board = esp32dev
 framework = arduino
 `,
-			expectedEnv: "esp32/tbeam",
-			expectError: false,
+			expectedEnvs: []string{"esp32/tbeam"},
 		},
 		{
 			name: "env name with hyphen",
@@ -148,11 +180,10 @@ framework = arduino
 board = esp32dev
 framework = arduino
 `,
-			expectedEnv: "esp32-tbeam",
-			expectError: false,
+			expectedEnvs: []string{"esp32-tbeam"},
 		},
 		{
-			name: "multiple envs - first one",
+			name: "multiple envs",
 			content: `[env:tbeam]
 board = esp32dev
 framework = arduino
@@ -161,15 +192,14 @@ framework = arduino
 board = nanoatmega328
 framework = arduino
 `,
-			expectedEnv: "tbeam",
-			expectError: false,
+			expectedEnvs: []string{"tbeam", "nano"},
 		},
 		{
 			name: "no env section",
 			content: `[platformio]
 default_envs = tbeam
 `,
-			expectError: true,
+			expectedEnvs: []string{},
 		},
 		{
 			name: "env with whitespace",
@@ -177,8 +207,15 @@ default_envs = tbeam
 board = esp32dev
 framework = arduino
 `,
-			expectedEnv: "tbeam-core",
-			expectError: false,
+			expectedEnvs: []string{"tbeam-core"},
+		},
+		{
+			name: "env with trailing comment",
+			content: `[env:t-deck-tft] ; display mode
+board = esp32dev
+framework = arduino
+`,
+			expectedEnvs: []string{"t-deck-tft"},
 		},
 	}
 
@@ -194,20 +231,13 @@ framework = arduino
 				t.Fatalf("write platformio.ini: %v", err)
 			}
 
-			envName, err := extractPlatformIOEnvName(root)
-			if tt.expectError {
-				if err == nil {
-					t.Fatalf("expected error, got env name: %q", envName)
-				}
-				return
-			}
-
+			envNames, err := extractPlatformIOEnvNames(root)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if envName != tt.expectedEnv {
-				t.Fatalf("env name mismatch: got=%q want=%q", envName, tt.expectedEnv)
+			if !reflect.DeepEqual(envNames, tt.expectedEnvs) {
+				t.Fatalf("env names mismatch: got=%v want=%v", envNames, tt.expectedEnvs)
 			}
 		})
 	}

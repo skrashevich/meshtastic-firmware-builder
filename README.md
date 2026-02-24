@@ -160,7 +160,7 @@ In Docker Compose mode, frontend proxies `/api/*` to backend internally, so brow
 
 - `POST /api/repos/discover`
   - Body: `{ "repoUrl": "...", "ref": "main" }`
-  - Returns devices discovered from `variants/`
+  - Returns build targets discovered from `[env:*]` sections in `variants/**/platformio.ini`
 - `POST /api/jobs`
   - Body: `{ "repoUrl": "...", "ref": "main", "device": "tbeam" }`
   - Creates build job
@@ -171,7 +171,7 @@ In Docker Compose mode, frontend proxies `/api/*` to backend internally, so brow
 - `GET /api/jobs/{jobId}/logs/stream`
   - SSE stream with live log lines
 - `GET /api/jobs/{jobId}/artifacts`
-  - Returns list of all files found in `.pio/build/<device>/`
+  - Returns firmware files found in `.pio/build/<target>/` (`.bin`, `.hex`, `.uf2`, `.elf`)
 - `GET /api/jobs/{jobId}/artifacts/{artifactId}`
   - Downloads artifact file
 
