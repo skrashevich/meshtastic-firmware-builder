@@ -25,6 +25,7 @@ const (
 type Config struct {
 	Port              int
 	WorkDir           string
+	DockerHostWorkDir string
 	ConcurrentBuilds  int
 	Retention         time.Duration
 	BuildTimeout      time.Duration
@@ -32,6 +33,7 @@ type Config struct {
 	PlatformIOJobs    int
 	AllowedOrigins    []string
 	PlatformIOCache   string
+	DockerHostCache   string
 	MaxLogLines       int
 	BuildRateLimit    int
 	CleanupInterval   time.Duration
@@ -114,6 +116,22 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("resolve APP_PLATFORMIO_CACHE_DIR: %w", err)
 	}
 
+	dockerHostWorkDir := strings.TrimSpace(os.Getenv("APP_DOCKER_HOST_WORKDIR"))
+	if dockerHostWorkDir != "" {
+		if !filepath.IsAbs(dockerHostWorkDir) {
+			return Config{}, fmt.Errorf("APP_DOCKER_HOST_WORKDIR must be an absolute path")
+		}
+		dockerHostWorkDir = filepath.Clean(dockerHostWorkDir)
+	}
+
+	dockerHostCache := strings.TrimSpace(os.Getenv("APP_DOCKER_HOST_CACHE_DIR"))
+	if dockerHostCache != "" {
+		if !filepath.IsAbs(dockerHostCache) {
+			return Config{}, fmt.Errorf("APP_DOCKER_HOST_CACHE_DIR must be an absolute path")
+		}
+		dockerHostCache = filepath.Clean(dockerHostCache)
+	}
+
 	if err := ensureDir(discoveryRoot); err != nil {
 		return Config{}, err
 	}
@@ -137,6 +155,7 @@ func Load() (Config, error) {
 	return Config{
 		Port:              port,
 		WorkDir:           workDir,
+		DockerHostWorkDir: dockerHostWorkDir,
 		ConcurrentBuilds:  concurrentBuilds,
 		Retention:         time.Duration(retentionHours) * time.Hour,
 		BuildTimeout:      time.Duration(buildTimeoutMinutes) * time.Minute,
@@ -144,6 +163,7 @@ func Load() (Config, error) {
 		PlatformIOJobs:    platformIOJobs,
 		AllowedOrigins:    allowedOrigins,
 		PlatformIOCache:   platformIOCache,
+		DockerHostCache:   dockerHostCache,
 		MaxLogLines:       maxLogLines,
 		BuildRateLimit:    buildRateLimit,
 		CleanupInterval:   time.Hour,

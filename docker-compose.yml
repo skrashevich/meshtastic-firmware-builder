@@ -13,8 +13,10 @@ services:
       APP_ALLOWED_ORIGINS: "${APP_ALLOWED_ORIGINS}"
       APP_MAX_LOG_LINES: "${APP_MAX_LOG_LINES}"
       APP_BUILD_RATE_LIMIT_PER_MINUTE: "${APP_BUILD_RATE_LIMIT_PER_MINUTE}"
+      APP_DOCKER_HOST_WORKDIR: "${APP_DOCKER_HOST_WORKDIR:-${PWD}/build-workdir}"
+      APP_DOCKER_HOST_CACHE_DIR: "${APP_DOCKER_HOST_CACHE_DIR:-${PWD}/build-workdir/platformio-cache}"
     volumes:
-      - ./build-workdir:/app/build-workdir
+      - ${APP_DOCKER_HOST_WORKDIR:-${PWD}/build-workdir}:/app/build-workdir
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8081:8080"

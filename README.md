@@ -61,7 +61,9 @@ Before the first run, ensure builder image exists:
 make builder-image
 ```
 
-Note: backend needs Docker socket access to launch build containers.
+Notes:
+- backend needs Docker socket access to launch build containers;
+- `docker-compose.yml` defaults host mount mapping to `${PWD}/build-workdir`; override with `APP_DOCKER_HOST_WORKDIR` and `APP_DOCKER_HOST_CACHE_DIR` when needed.
 In Docker Compose mode, frontend proxies `/api/*` to backend internally, so browser CORS issues are avoided.
 
 ## API
@@ -93,6 +95,8 @@ Important defaults:
 - `APP_BUILD_TIMEOUT_MINUTES=90`
 - `APP_ALLOWED_ORIGINS=http://localhost:5173`
 - `APP_BUILD_RATE_LIMIT_PER_MINUTE=10`
+- `APP_DOCKER_HOST_WORKDIR=/absolute/path/.../build-workdir` (required for Dockerized backend)
+- `APP_DOCKER_HOST_CACHE_DIR=/absolute/path/.../build-workdir/platformio-cache` (recommended)
 
 ## Security notes
 

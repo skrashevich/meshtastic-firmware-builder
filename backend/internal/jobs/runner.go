@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -13,8 +14,23 @@ import (
 func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string, device string, onLine func(string)) error {
 	containerProjectPath := "/workspace/repo"
 
-	repoMount := fmt.Sprintf("%s:/workspace/repo", repoPath)
-	cacheMount := fmt.Sprintf("%s:/root/.platformio", cfg.PlatformIOCache)
+	hostRepoPath, err := resolveDockerHostPath(repoPath, cfg.WorkDir, cfg.DockerHostWorkDir)
+	if err != nil {
+		return fmt.Errorf("resolve repository mount path: %w", err)
+	}
+
+	hostCachePath := cfg.PlatformIOCache
+	if cfg.DockerHostCache != "" {
+		hostCachePath = cfg.DockerHostCache
+	} else {
+		hostCachePath, err = resolveDockerHostPath(cfg.PlatformIOCache, cfg.WorkDir, cfg.DockerHostWorkDir)
+		if err != nil {
+			return fmt.Errorf("resolve cache mount path: %w", err)
+		}
+	}
+
+	repoMount := fmt.Sprintf("%s:/workspace/repo", hostRepoPath)
+	cacheMount := fmt.Sprintf("%s:/root/.platformio", hostCachePath)
 
 	args := []string{
 		"run",
@@ -41,4 +57,24 @@ func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string
 	}
 
 	return nil
+}
+
+func resolveDockerHostPath(path string, containerRoot string, hostRoot string) (string, error) {
+	if strings.TrimSpace(hostRoot) == "" {
+		return path, nil
+	}
+
+	rel, err := filepath.Rel(containerRoot, path)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("path %q is outside APP_WORKDIR %q", path, containerRoot)
+	}
+
+	if rel == "." {
+		return hostRoot, nil
+	}
+
+	return filepath.Join(hostRoot, rel), nil
 }
