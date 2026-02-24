@@ -26,7 +26,7 @@ func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, 
 		return nil, err
 	}
 	if len(devices) == 0 {
-		return nil, fmt.Errorf("variants directory is empty")
+		return nil, fmt.Errorf("no final devices found in variants directory")
 	}
 
 	return devices, nil
@@ -44,6 +44,7 @@ func listVariantDirectories(repoPath string) ([]string, error) {
 		if !entry.IsDir() {
 			continue
 		}
+
 		name := strings.TrimSpace(entry.Name())
 		if strings.HasPrefix(name, ".") {
 			continue
@@ -51,6 +52,15 @@ func listVariantDirectories(repoPath string) ([]string, error) {
 		if err := ValidateDevice(name); err != nil {
 			continue
 		}
+
+		hasPlatformIOIni, err := hasVariantPlatformIOIni(variantsDir, name)
+		if err != nil {
+			return nil, err
+		}
+		if !hasPlatformIOIni {
+			continue
+		}
+
 		devices = append(devices, name)
 	}
 
@@ -69,4 +79,21 @@ func variantExists(repoPath string, device string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func hasVariantPlatformIOIni(variantsDir string, device string) (bool, error) {
+	configPath := filepath.Join(variantsDir, device, "platformio.ini")
+	info, err := os.Stat(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("read %s: %w", configPath, err)
+	}
+
+	if info.IsDir() {
+		return false, nil
+	}
+
+	return true, nil
 }

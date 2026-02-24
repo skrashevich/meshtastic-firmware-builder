@@ -23,6 +23,23 @@ func TestListVariantDirectories(t *testing.T) {
 		}
 	}
 
+	if err := os.MkdirAll(filepath.Join(variantsDir, "unfinished-device"), 0o755); err != nil {
+		t.Fatalf("create unfinished-device: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(variantsDir, "tbeam", "platformio.ini"), []byte("[env:tbeam]\n"), 0o644); err != nil {
+		t.Fatalf("create tbeam platformio.ini: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(variantsDir, "heltec-v3", "platformio.ini"), []byte("[env:heltec-v3]\n"), 0o644); err != nil {
+		t.Fatalf("create heltec-v3 platformio.ini: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(variantsDir, ".internal", "platformio.ini"), []byte("[env:internal]\n"), 0o644); err != nil {
+		t.Fatalf("create .internal platformio.ini: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(variantsDir, "bad name", "platformio.ini"), []byte("[env:bad]\n"), 0o644); err != nil {
+		t.Fatalf("create bad name platformio.ini: %v", err)
+	}
+
 	if err := os.WriteFile(filepath.Join(variantsDir, "README.md"), []byte("skip"), 0o644); err != nil {
 		t.Fatalf("create file: %v", err)
 	}
