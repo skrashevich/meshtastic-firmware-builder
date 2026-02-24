@@ -114,3 +114,101 @@ func TestFindVariantProjectRejectsAmbiguousName(t *testing.T) {
 		t.Fatalf("expected ambiguity error")
 	}
 }
+
+func TestExtractPlatformIOEnvName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		content     string
+		expectedEnv string
+		expectError bool
+	}{
+		{
+			name: "simple env name",
+			content: `[env:tbeam]
+board = esp32dev
+framework = arduino
+`,
+			expectedEnv: "tbeam",
+			expectError: false,
+		},
+		{
+			name: "env name with slash",
+			content: `[env:esp32/tbeam]
+board = esp32dev
+framework = arduino
+`,
+			expectedEnv: "esp32/tbeam",
+			expectError: false,
+		},
+		{
+			name: "env name with hyphen",
+			content: `[env:esp32-tbeam]
+board = esp32dev
+framework = arduino
+`,
+			expectedEnv: "esp32-tbeam",
+			expectError: false,
+		},
+		{
+			name: "multiple envs - first one",
+			content: `[env:tbeam]
+board = esp32dev
+framework = arduino
+
+[env:nano]
+board = nanoatmega328
+framework = arduino
+`,
+			expectedEnv: "tbeam",
+			expectError: false,
+		},
+		{
+			name: "no env section",
+			content: `[platformio]
+default_envs = tbeam
+`,
+			expectError: true,
+		},
+		{
+			name: "env with whitespace",
+			content: `[  env: tbeam-core  ]
+board = esp32dev
+framework = arduino
+`,
+			expectedEnv: "tbeam-core",
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := t.TempDir()
+			configPath := filepath.Join(root, "platformio.ini")
+
+			if err := os.WriteFile(configPath, []byte(tt.content), 0o644); err != nil {
+				t.Fatalf("write platformio.ini: %v", err)
+			}
+
+			envName, err := extractPlatformIOEnvName(root)
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected error, got env name: %q", envName)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if envName != tt.expectedEnv {
+				t.Fatalf("env name mismatch: got=%q want=%q", envName, tt.expectedEnv)
+			}
+		})
+	}
+}

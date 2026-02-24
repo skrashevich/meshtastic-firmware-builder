@@ -14,6 +14,7 @@ type variantProject struct {
 	Name         string
 	RelativePath string
 	AbsolutePath string
+	EnvName      string // PlatformIO environment name from platformio.ini
 }
 
 func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, ref string) ([]string, error) {
@@ -139,10 +140,17 @@ func collectVariantProjects(variantsDir string) ([]variantProject, error) {
 			return err
 		}
 
+		// Extract PlatformIO environment name from platformio.ini
+		envName, err := extractPlatformIOEnvName(path)
+		if err != nil {
+			return err
+		}
+
 		entries = append(entries, variantProject{
 			Name:         name,
 			RelativePath: filepath.ToSlash(relPath),
 			AbsolutePath: path,
+			EnvName:      envName,
 		})
 		return filepath.SkipDir
 	})
@@ -167,4 +175,37 @@ func hasPlatformIOIni(devicePath string) (bool, error) {
 		return false, fmt.Errorf("read %s: %w", configPath, err)
 	}
 	return !info.IsDir(), nil
+}
+
+func extractPlatformIOEnvName(devicePath string) (string, error) {
+	configPath := filepath.Join(devicePath, "platformio.ini")
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", fmt.Errorf("read platformio.ini: %w", err)
+	}
+
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		// Trim leading/trailing whitespace
+		line = strings.TrimSpace(line)
+		// Remove all spaces from the line to handle [ env: name ] cases
+		// PlatformIO environment names don't contain spaces
+		line = strings.ReplaceAll(line, " ", "")
+
+		// Match [env:name] format
+		if strings.HasPrefix(line, "[env:") && strings.HasSuffix(line, "]") {
+			// Extract content between brackets: [env:name] -> env:name
+			envSection := strings.TrimPrefix(line, "[")
+			envSection = strings.TrimSuffix(envSection, "]")
+			// Extract environment name: env:name -> name
+			if strings.HasPrefix(envSection, "env:") {
+				envName := strings.TrimPrefix(envSection, "env:")
+				if envName != "" {
+					return envName, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no [env:*] section found in platformio.ini")
 }

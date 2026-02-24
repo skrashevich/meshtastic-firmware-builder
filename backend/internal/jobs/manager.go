@@ -196,12 +196,12 @@ func (m *Manager) executeJob(job *Job) {
 		m.failJob(job, fmt.Errorf("device %q has no platformio.ini in variants", job.Device))
 		return
 	}
-	if err := ValidateDevice(project.Name); err != nil {
-		m.failJob(job, fmt.Errorf("invalid environment name for %q", job.Device))
+	if err := ValidateDevice(project.EnvName); err != nil {
+		m.failJob(job, fmt.Errorf("invalid environment name %q for device %q", project.EnvName, job.Device))
 		return
 	}
 
-	if err := runBuildInContainer(ctx, m.cfg, repoPath, project.Name, onLog); err != nil {
+	if err := runBuildInContainer(ctx, m.cfg, repoPath, project.EnvName, onLog); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			m.failJob(job, fmt.Errorf("build timeout reached after %s", m.cfg.BuildTimeout))
 			return
@@ -214,7 +214,7 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
-	artifacts, err := collectArtifacts(repoPath, project.Name)
+	artifacts, err := collectArtifacts(repoPath, project.EnvName)
 	if err != nil {
 		m.failJob(job, err)
 		return

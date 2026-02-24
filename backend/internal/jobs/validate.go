@@ -10,7 +10,7 @@ import (
 
 var (
 	scpLikeRepoPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:[A-Za-z0-9._/-]+(\.git)?$`)
-	devicePattern      = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+	devicePattern      = regexp.MustCompile(`^[A-Za-z0-9._/-]+$`)
 	devicePathPattern  = regexp.MustCompile(`^[A-Za-z0-9._/-]+$`)
 	refPattern         = regexp.MustCompile(`^[A-Za-z0-9._/-]{1,128}$`)
 )
@@ -69,6 +69,13 @@ func ValidateDevice(raw string) error {
 	}
 	if !devicePattern.MatchString(value) {
 		return errors.New("device contains unsupported characters")
+	}
+	// Prevent path traversal attacks
+	if strings.Contains(value, "..") {
+		return errors.New("device contains invalid path traversal")
+	}
+	if strings.HasPrefix(value, "/") || strings.HasSuffix(value, "/") {
+		return errors.New("device contains invalid path separators")
 	}
 	return nil
 }
