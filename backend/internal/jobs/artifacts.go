@@ -7,7 +7,16 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 )
+
+// Firmware extensions to collect
+var firmwareExtensions = []string{
+	".bin", // Binary file
+	".hex", // Intel HEX format
+	".uf2", // USB Flashing Format
+	".elf", // Executable and Linkable Format
+}
 
 func collectArtifacts(repoPath string, device string) ([]Artifact, error) {
 	buildRoot := filepath.Join(repoPath, ".pio", "build", device)
@@ -28,6 +37,19 @@ func collectArtifacts(repoPath string, device string) ([]Artifact, error) {
 			return nil
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+
+		// Filter: only collect firmware files (.bin, .hex, .uf2, .elf)
+		ext := strings.ToLower(filepath.Ext(path))
+		isFirmware := false
+		for _, fwExt := range firmwareExtensions {
+			if ext == fwExt {
+				isFirmware = true
+				break
+			}
+		}
+		if !isFirmware {
 			return nil
 		}
 
@@ -54,7 +76,7 @@ func collectArtifacts(repoPath string, device string) ([]Artifact, error) {
 	}
 
 	if len(artifacts) == 0 {
-		return nil, fmt.Errorf("no artifacts found in build output")
+		return nil, fmt.Errorf("no firmware files found in build output")
 	}
 
 	sort.Slice(artifacts, func(i int, j int) bool {
