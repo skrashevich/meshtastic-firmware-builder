@@ -153,7 +153,7 @@ body {
   font-size: 0.93rem;
 }
 
-input {
+input:not([type="radio"]) {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -213,8 +213,22 @@ a:focus {
   display: flex;
   gap: 8px;
   align-items: center;
+  min-width: 0;
   cursor: pointer;
   transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.device-card input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.device-card span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .device-card:hover {
