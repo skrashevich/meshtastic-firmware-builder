@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      APP_PORT: "8080"
+      APP_WORKDIR: /app/build-workdir
+      APP_CONCURRENT_BUILDS: "1"
+      APP_RETENTION_HOURS: "168"
+      APP_BUILD_TIMEOUT_MINUTES: "90"
+      APP_BUILDER_IMAGE: meshtastic-pio-builder:latest
+      APP_PLATFORMIO_JOBS: "1"
+      APP_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:3000
+      APP_MAX_LOG_LINES: "20000"
+      APP_BUILD_RATE_LIMIT_PER_MINUTE: "10"
+    volumes:
+      - ./build-workdir:/app/build-workdir
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    ports:
+      - "5173:80"

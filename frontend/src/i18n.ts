@@ -1,0 +1,104 @@
+export type Locale = "ru" | "en";
+
+type Dictionary = {
+  title: string;
+  subtitle: string;
+  language: string;
+  repoLabel: string;
+  repoPlaceholder: string;
+  refLabel: string;
+  refPlaceholder: string;
+  discover: string;
+  discovering: string;
+  devicesTitle: string;
+  deviceLabel: string;
+  startBuild: string;
+  startingBuild: string;
+  status: string;
+  logs: string;
+  artifacts: string;
+  noArtifacts: string;
+  logsHint: string;
+  autoScrollOn: string;
+  autoScrollOff: string;
+  clearLogs: string;
+  buildAgain: string;
+  chooseDevice: string;
+  repoRequired: string;
+  noDevices: string;
+  unknownError: string;
+  statuses: Record<string, string>;
+};
+
+export const dict: Record<Locale, Dictionary> = {
+  ru: {
+    title: "Meshtastic Firmware Builder",
+    subtitle: "Сборка прошивок из форков для выбранного устройства",
+    language: "Язык",
+    repoLabel: "Ссылка на Git-репозиторий",
+    repoPlaceholder: "https://github.com/<owner>/<repo>.git",
+    refLabel: "Branch / Tag / Commit",
+    refPlaceholder: "например: main или v2.5.12",
+    discover: "Найти устройства",
+    discovering: "Поиск устройств...",
+    devicesTitle: "Доступные устройства (каталог variants)",
+    deviceLabel: "Устройство",
+    startBuild: "Запустить сборку",
+    startingBuild: "Запуск...",
+    status: "Статус",
+    logs: "Логи сборки",
+    artifacts: "Файлы прошивки",
+    noArtifacts: "Файлы пока недоступны",
+    logsHint: "Логи обновляются в реальном времени через SSE",
+    autoScrollOn: "Автопрокрутка: вкл",
+    autoScrollOff: "Автопрокрутка: выкл",
+    clearLogs: "Очистить логи",
+    buildAgain: "Собрать снова",
+    chooseDevice: "Выберите устройство",
+    repoRequired: "Укажите ссылку на репозиторий",
+    noDevices: "Устройства пока не загружены",
+    unknownError: "Неизвестная ошибка",
+    statuses: {
+      queued: "в очереди",
+      running: "выполняется",
+      success: "успешно",
+      failed: "ошибка",
+      cancelled: "отменено",
+    },
+  },
+  en: {
+    title: "Meshtastic Firmware Builder",
+    subtitle: "Build firmware from forks for a selected device",
+    language: "Language",
+    repoLabel: "Git repository URL",
+    repoPlaceholder: "https://github.com/<owner>/<repo>.git",
+    refLabel: "Branch / Tag / Commit",
+    refPlaceholder: "example: main or v2.5.12",
+    discover: "Discover devices",
+    discovering: "Discovering devices...",
+    devicesTitle: "Available devices (variants directory)",
+    deviceLabel: "Device",
+    startBuild: "Start build",
+    startingBuild: "Starting...",
+    status: "Status",
+    logs: "Build logs",
+    artifacts: "Firmware files",
+    noArtifacts: "No files available yet",
+    logsHint: "Logs are streamed in real time via SSE",
+    autoScrollOn: "Autoscroll: on",
+    autoScrollOff: "Autoscroll: off",
+    clearLogs: "Clear logs",
+    buildAgain: "Build again",
+    chooseDevice: "Choose a device",
+    repoRequired: "Repository URL is required",
+    noDevices: "No devices loaded yet",
+    unknownError: "Unknown error",
+    statuses: {
+      queued: "queued",
+      running: "running",
+      success: "success",
+      failed: "failed",
+      cancelled: "cancelled",
+    },
+  },
+};

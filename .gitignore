@@ -1,0 +1,17 @@
+# Workspace
+.DS_Store
+.env
+.tmp/
+build-workdir/
+
+# Backend
+backend/bin/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/

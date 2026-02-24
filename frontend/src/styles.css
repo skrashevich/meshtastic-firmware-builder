@@ -1,0 +1,376 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg-1: #f6f7ef;
+  --bg-2: #e8f1ee;
+  --surface: rgba(255, 255, 255, 0.84);
+  --surface-strong: #ffffff;
+  --line: rgba(16, 45, 44, 0.18);
+  --ink: #172425;
+  --ink-muted: #4a6661;
+  --accent: #0f8f7f;
+  --accent-dark: #066e61;
+  --danger: #b9452f;
+  --radius: 18px;
+  --shadow: 0 20px 40px rgba(20, 50, 44, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Space Grotesk", "Trebuchet MS", sans-serif;
+  background: radial-gradient(circle at 20% 0%, #f5f6df, transparent 38%),
+    radial-gradient(circle at 90% 20%, #d6ece8, transparent 42%),
+    linear-gradient(135deg, var(--bg-1), var(--bg-2));
+  min-height: 100vh;
+}
+
+.page-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.layout {
+  width: min(1080px, 94vw);
+  margin: 0 auto;
+  padding: 28px 0 32px;
+  display: grid;
+  gap: 16px;
+  position: relative;
+  z-index: 2;
+}
+
+.bg-orb {
+  position: fixed;
+  border-radius: 999px;
+  filter: blur(2px);
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.orb-a {
+  width: 340px;
+  height: 340px;
+  top: -80px;
+  right: -120px;
+  background: radial-gradient(circle, #ffd39b, transparent 66%);
+}
+
+.orb-b {
+  width: 300px;
+  height: 300px;
+  left: -120px;
+  bottom: -120px;
+  background: radial-gradient(circle, #8ed8c9, transparent 68%);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(7px);
+  padding: 18px;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.hero h1 {
+  margin: 8px 0 6px;
+  font-size: clamp(1.4rem, 1.1rem + 1.8vw, 2.1rem);
+  line-height: 1.15;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+.badge {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #e2f6f2;
+  border: 1px solid #8ecfc3;
+  color: #0b5e57;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.locale-box {
+  display: grid;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+}
+
+.locale-actions {
+  display: inline-flex;
+  background: #edf4f2;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 3px;
+  gap: 4px;
+}
+
+.locale-btn {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 5px 10px;
+  cursor: pointer;
+  color: var(--ink-muted);
+  font-family: "Space Grotesk", "Trebuchet MS", sans-serif;
+  font-weight: 600;
+}
+
+.locale-btn.active {
+  background: var(--surface-strong);
+  color: var(--ink);
+}
+
+.grid-form {
+  display: grid;
+  gap: 12px;
+}
+
+.grid-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--ink-muted);
+  font-size: 0.93rem;
+}
+
+input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+input:focus,
+button:focus,
+a:focus {
+  outline: 3px solid rgba(15, 143, 127, 0.28);
+  outline-offset: 1px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.panel-head p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.status-chip {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #eef5f3;
+  color: var(--ink-muted);
+  font-size: 0.83rem;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.devices-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.device-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f9fbfa;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.device-card:hover {
+  transform: translateY(-1px);
+  border-color: #6faea3;
+}
+
+.device-card.active {
+  border-color: var(--accent);
+  background: #e8faf6;
+}
+
+.actions-row {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+}
+
+.primary,
+.ghost {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.primary {
+  background: linear-gradient(120deg, var(--accent), var(--accent-dark));
+  color: #ffffff;
+}
+
+.primary:hover {
+  transform: translateY(-1px);
+}
+
+.primary:disabled {
+  opacity: 0.64;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ghost {
+  background: #f2f7f5;
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.logs-box {
+  margin-top: 12px;
+  background: #0f1720;
+  color: #c3ffe7;
+  border-radius: 12px;
+  min-height: 200px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  border: 1px solid #213849;
+}
+
+.artifacts-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.artifacts-list li {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7fbfa;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.artifacts-list a {
+  color: #0a6f64;
+  text-decoration: none;
+}
+
+.artifacts-list a:hover {
+  text-decoration: underline;
+}
+
+.artifacts-list span {
+  color: var(--ink-muted);
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.82rem;
+}
+
+.muted {
+  color: var(--ink-muted);
+  margin: 10px 0 0;
+}
+
+.error-banner {
+  border: 1px solid #efb6a9;
+  border-radius: 12px;
+  background: #fff4f1;
+  color: var(--danger);
+  padding: 12px;
+  font-weight: 600;
+}
+
+.reveal-1,
+.reveal-2,
+.reveal-3,
+.reveal-4 {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: panel-fade 0.45s ease forwards;
+}
+
+.reveal-2 {
+  animation-delay: 0.08s;
+}
+
+.reveal-3 {
+  animation-delay: 0.16s;
+}
+
+.reveal-4 {
+  animation-delay: 0.24s;
+}
+
+@keyframes panel-fade {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 760px) {
+  .hero {
+    flex-direction: column;
+  }
+
+  .panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .status-chip {
+    white-space: normal;
+  }
+}
