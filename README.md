@@ -62,6 +62,7 @@ make builder-image
 ```
 
 Note: backend needs Docker socket access to launch build containers.
+In Docker Compose mode, frontend proxies `/api/*` to backend internally, so browser CORS issues are avoided.
 
 ## API
 
