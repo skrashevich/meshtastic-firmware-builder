@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -34,33 +35,25 @@ func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, 
 
 func listVariantDirectories(repoPath string) ([]string, error) {
 	variantsDir := filepath.Join(repoPath, "variants")
-	entries, err := os.ReadDir(variantsDir)
+	entries, err := collectVariantEntries(variantsDir)
 	if err != nil {
-		return nil, fmt.Errorf("read variants directory: %w", err)
+		return nil, err
 	}
 
 	devices := make([]string, 0, len(entries))
+	seen := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		name := strings.TrimSpace(entry.Name())
-		if strings.HasPrefix(name, ".") {
+		name := strings.TrimSpace(entry)
+		if name == "" {
 			continue
 		}
 		if err := ValidateDevice(name); err != nil {
 			continue
 		}
-
-		hasPlatformIOIni, err := hasVariantPlatformIOIni(variantsDir, name)
-		if err != nil {
-			return nil, err
-		}
-		if !hasPlatformIOIni {
+		if _, exists := seen[name]; exists {
 			continue
 		}
-
+		seen[name] = struct{}{}
 		devices = append(devices, name)
 	}
 
@@ -81,8 +74,49 @@ func variantExists(repoPath string, device string) (bool, error) {
 	return false, nil
 }
 
-func hasVariantPlatformIOIni(variantsDir string, device string) (bool, error) {
-	configPath := filepath.Join(variantsDir, device, "platformio.ini")
+func collectVariantEntries(variantsDir string) ([]string, error) {
+	entries := make([]string, 0, 128)
+
+	err := filepath.WalkDir(variantsDir, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() {
+			return nil
+		}
+
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") {
+			if path == variantsDir {
+				return nil
+			}
+			return filepath.SkipDir
+		}
+
+		if path == variantsDir {
+			return nil
+		}
+
+		hasConfig, err := hasPlatformIOIni(path)
+		if err != nil {
+			return err
+		}
+		if !hasConfig {
+			return nil
+		}
+
+		entries = append(entries, name)
+		return filepath.SkipDir
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read variants directory: %w", err)
+	}
+
+	return entries, nil
+}
+
+func hasPlatformIOIni(devicePath string) (bool, error) {
+	configPath := filepath.Join(devicePath, "platformio.ini")
 	info, err := os.Stat(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -90,10 +124,5 @@ func hasVariantPlatformIOIni(variantsDir string, device string) (bool, error) {
 		}
 		return false, fmt.Errorf("read %s: %w", configPath, err)
 	}
-
-	if info.IsDir() {
-		return false, nil
-	}
-
-	return true, nil
+	return !info.IsDir(), nil
 }
