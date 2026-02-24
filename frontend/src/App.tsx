@@ -9,7 +9,6 @@ import {
   discoverDevices,
   getArtifacts,
   getJob,
-  getLogs,
 } from "./api";
 import { Locale, dict } from "./i18n";
 
@@ -116,9 +115,7 @@ export default function App() {
       const created = await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice);
       setJob(created);
       setArtifacts([]);
-
-      const snapshot = await getLogs(created.id);
-      setLogs(snapshot.lines);
+      setLogs([]);
       openStream(created.id);
     } catch (requestError) {
       setError(errorToMessage(requestError, t.unknownError));

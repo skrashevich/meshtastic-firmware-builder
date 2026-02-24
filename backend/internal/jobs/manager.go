@@ -197,7 +197,17 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
-	if err := runBuildInContainer(ctx, m.cfg, repoPath, job.Device, onLog); err != nil {
+	projectPath, err := findVariantProjectPath(repoPath, job.Device)
+	if err != nil {
+		m.failJob(job, err)
+		return
+	}
+	if projectPath == "" {
+		m.failJob(job, fmt.Errorf("device %q has no platformio.ini in variants", job.Device))
+		return
+	}
+
+	if err := runBuildInContainer(ctx, m.cfg, repoPath, projectPath, job.Device, onLog); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			m.failJob(job, fmt.Errorf("build timeout reached after %s", m.cfg.BuildTimeout))
 			return
@@ -210,7 +220,7 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
-	artifacts, err := collectArtifacts(repoPath, job.Device)
+	artifacts, err := collectArtifacts(projectPath, job.Device)
 	if err != nil {
 		m.failJob(job, err)
 		return

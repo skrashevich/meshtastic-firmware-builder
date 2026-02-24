@@ -10,6 +10,11 @@ import (
 	"strings"
 )
 
+type variantProject struct {
+	Name string
+	Path string
+}
+
 func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, ref string) ([]string, error) {
 	tempDir, err := os.MkdirTemp(discoveryRoot, "discover-*")
 	if err != nil {
@@ -35,7 +40,7 @@ func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, 
 
 func listVariantDirectories(repoPath string) ([]string, error) {
 	variantsDir := filepath.Join(repoPath, "variants")
-	entries, err := collectVariantEntries(variantsDir)
+	entries, err := collectVariantProjects(variantsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +48,7 @@ func listVariantDirectories(repoPath string) ([]string, error) {
 	devices := make([]string, 0, len(entries))
 	seen := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
-		name := strings.TrimSpace(entry)
+		name := strings.TrimSpace(entry.Name)
 		if name == "" {
 			continue
 		}
@@ -62,20 +67,35 @@ func listVariantDirectories(repoPath string) ([]string, error) {
 }
 
 func variantExists(repoPath string, device string) (bool, error) {
-	devices, err := listVariantDirectories(repoPath)
+	projectPath, err := findVariantProjectPath(repoPath, device)
 	if err != nil {
 		return false, err
 	}
-	for _, value := range devices {
-		if value == device {
-			return true, nil
-		}
-	}
-	return false, nil
+	return projectPath != "", nil
 }
 
-func collectVariantEntries(variantsDir string) ([]string, error) {
-	entries := make([]string, 0, 128)
+func findVariantProjectPath(repoPath string, device string) (string, error) {
+	if err := ValidateDevice(device); err != nil {
+		return "", err
+	}
+
+	variantsDir := filepath.Join(repoPath, "variants")
+	entries, err := collectVariantProjects(variantsDir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, entry := range entries {
+		if entry.Name == device {
+			return entry.Path, nil
+		}
+	}
+
+	return "", nil
+}
+
+func collectVariantProjects(variantsDir string) ([]variantProject, error) {
+	entries := make([]variantProject, 0, 128)
 
 	err := filepath.WalkDir(variantsDir, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -105,7 +125,7 @@ func collectVariantEntries(variantsDir string) ([]string, error) {
 			return nil
 		}
 
-		entries = append(entries, name)
+		entries = append(entries, variantProject{Name: name, Path: path})
 		return filepath.SkipDir
 	})
 	if err != nil {

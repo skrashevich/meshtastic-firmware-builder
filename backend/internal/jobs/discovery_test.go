@@ -60,3 +60,33 @@ func TestListVariantDirectories(t *testing.T) {
 		t.Fatalf("unexpected variants: got=%v want=%v", got, want)
 	}
 }
+
+func TestFindVariantProjectPath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	variantsDir := filepath.Join(root, "variants")
+	if err := os.MkdirAll(filepath.Join(variantsDir, "esp32", "tbeam"), 0o755); err != nil {
+		t.Fatalf("create esp32/tbeam: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(variantsDir, "nrf52840", "tbeam"), 0o755); err != nil {
+		t.Fatalf("create nrf52840/tbeam: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(variantsDir, "esp32", "tbeam", "platformio.ini"), []byte("[env:tbeam_esp32]\n"), 0o644); err != nil {
+		t.Fatalf("create esp32 config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(variantsDir, "nrf52840", "tbeam", "platformio.ini"), []byte("[env:tbeam_nrf]\n"), 0o644); err != nil {
+		t.Fatalf("create nrf config: %v", err)
+	}
+
+	path, err := findVariantProjectPath(root, "tbeam")
+	if err != nil {
+		t.Fatalf("findVariantProjectPath failed: %v", err)
+	}
+
+	want := filepath.Join(variantsDir, "esp32", "tbeam")
+	if path != want {
+		t.Fatalf("unexpected project path: got=%q want=%q", path, want)
+	}
+}
