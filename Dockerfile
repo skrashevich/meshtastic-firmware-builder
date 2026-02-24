@@ -4,7 +4,7 @@
 # ============================================
 # Stage 1: Backend Build (Go)
 # ============================================
-FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend-builder
 
 # Install build dependencies for cross-compilation
 RUN apk add --no-cache git ca-certificates

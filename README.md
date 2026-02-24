@@ -123,7 +123,7 @@ docker exec meshtastic-builder cat /var/log/supervisor/nginx-stderr.log
 ### Architecture Decisions
 
 **Multi-stage build:**
-- **Backend builder**: Go 1.22 Alpine → minimal static binary
+- **Backend builder**: Go 1.26 Alpine → minimal static binary
 - **Frontend builder**: Node 22 Alpine → production-optimized Vite build
 - **Final image**: Alpine Linux + Nginx + supervisord → smallest footprint
 
