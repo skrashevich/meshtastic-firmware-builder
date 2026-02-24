@@ -1,0 +1,65 @@
+<svg width="1600" height="640" viewBox="0 0 1600 640" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="bannerTitle bannerDesc">
+  <title id="bannerTitle">Meshtastic Firmware Builder Banner</title>
+  <desc id="bannerDesc">Wide project banner with mesh nodes, glow effects, and title.</desc>
+  <defs>
+    <linearGradient id="bannerBg" x1="104" y1="54" x2="1542" y2="612" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F3A49"/>
+      <stop offset="0.52" stop-color="#0B5962"/>
+      <stop offset="1" stop-color="#092C3D"/>
+    </linearGradient>
+    <radialGradient id="leftGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(220 130) rotate(22) scale(480)">
+      <stop stop-color="#58EFD5" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#58EFD5" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="rightGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1280 450) rotate(35) scale(530)">
+      <stop stop-color="#FFE3A1" stop-opacity="0.33"/>
+      <stop offset="1" stop-color="#FFE3A1" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bannerText" x1="510" y1="190" x2="1260" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F3D4"/>
+      <stop offset="1" stop-color="#B8FFE8"/>
+    </linearGradient>
+    <linearGradient id="iconGrad" x1="142" y1="104" x2="430" y2="390" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17D6B5"/>
+      <stop offset="1" stop-color="#0E4E61"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="640" rx="48" fill="url(#bannerBg)"/>
+  <rect width="1600" height="640" rx="48" fill="url(#leftGlow)"/>
+  <rect width="1600" height="640" rx="48" fill="url(#rightGlow)"/>
+
+  <g stroke="#6EECD6" stroke-opacity="0.35" stroke-width="2">
+    <path d="M60 500L220 360L410 430L590 290L790 360L980 230L1180 300L1410 180"/>
+    <path d="M90 180L290 130L470 200L660 100L860 170L1040 70L1240 140L1500 80"/>
+    <path d="M20 320L180 250L380 320L560 220L760 280L960 180L1160 250L1410 130"/>
+  </g>
+
+  <g fill="#7EF9E2" fill-opacity="0.58">
+    <circle cx="220" cy="360" r="6"/>
+    <circle cx="410" cy="430" r="6"/>
+    <circle cx="590" cy="290" r="6"/>
+    <circle cx="790" cy="360" r="6"/>
+    <circle cx="980" cy="230" r="6"/>
+    <circle cx="1180" cy="300" r="6"/>
+    <circle cx="1410" cy="180" r="6"/>
+    <circle cx="290" cy="130" r="6"/>
+    <circle cx="660" cy="100" r="6"/>
+    <circle cx="1040" cy="70" r="6"/>
+    <circle cx="1240" cy="140" r="6"/>
+  </g>
+
+  <rect x="88" y="84" width="356" height="356" rx="78" fill="url(#iconGrad)"/>
+  <path d="M156 312V142L266 252L376 142V312" stroke="#FFF9DA" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="156" cy="142" r="14" fill="#FFF9DA"/>
+  <circle cx="156" cy="312" r="14" fill="#FFF9DA"/>
+  <circle cx="266" cy="252" r="14" fill="#FFF9DA"/>
+  <circle cx="376" cy="142" r="14" fill="#FFF9DA"/>
+  <circle cx="376" cy="312" r="14" fill="#FFF9DA"/>
+  <circle cx="404" cy="170" r="10" fill="#ACFFEC"/>
+  <path d="M366 162C381 145 400 136 421 136" stroke="#ACFFEC" stroke-width="8" stroke-linecap="round"/>
+
+  <text x="500" y="236" fill="url(#bannerText)" font-family="Segoe UI, Trebuchet MS, Arial, sans-serif" font-size="110" font-weight="800" letter-spacing="2">MESHTASTIC</text>
+  <text x="504" y="338" fill="#D4FDEB" font-family="Segoe UI, Trebuchet MS, Arial, sans-serif" font-size="82" font-weight="700">Firmware Builder</text>
+  <text x="506" y="404" fill="#96D9CB" font-family="Segoe UI, Trebuchet MS, Arial, sans-serif" font-size="36" font-weight="600" letter-spacing="1.2">Build, monitor, and ship mesh firmware from one clean interface</text>
+</svg>

@@ -1,0 +1,35 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="emblemTitle emblemDesc">
+  <title id="emblemTitle">Meshtastic Firmware Builder Emblem</title>
+  <desc id="emblemDesc">Circular emblem with mesh node icon and project title.</desc>
+  <defs>
+    <radialGradient id="ringGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(352 280) rotate(43) scale(840)">
+      <stop stop-color="#7FEEDB"/>
+      <stop offset="1" stop-color="#10414A"/>
+    </radialGradient>
+    <linearGradient id="centerGrad" x1="250" y1="210" x2="768" y2="842" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B3540"/>
+      <stop offset="1" stop-color="#0A1F2F"/>
+    </linearGradient>
+    <linearGradient id="meshGrad" x1="315" y1="352" x2="710" y2="695" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8F4D0"/>
+      <stop offset="1" stop-color="#B8FFE8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="180" fill="#F0F6F4"/>
+
+  <circle cx="512" cy="512" r="430" fill="url(#ringGlow)"/>
+  <circle cx="512" cy="512" r="382" fill="url(#centerGrad)" stroke="#90EEDB" stroke-width="4"/>
+
+  <circle cx="512" cy="368" r="18" fill="#B5FFE9"/>
+  <circle cx="368" cy="508" r="18" fill="#B5FFE9"/>
+  <circle cx="512" cy="648" r="18" fill="#B5FFE9"/>
+  <circle cx="656" cy="508" r="18" fill="#B5FFE9"/>
+  <circle cx="512" cy="508" r="20" fill="#FFF6CA"/>
+
+  <path d="M512 368L368 508L512 648L656 508L512 368Z" stroke="url(#meshGrad)" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M380 594V404L512 536L644 404V594" stroke="url(#meshGrad)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="512" y="760" text-anchor="middle" fill="#E8FFF5" font-family="Segoe UI, Trebuchet MS, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="3">MESHTASTIC</text>
+  <text x="512" y="824" text-anchor="middle" fill="#97DCCD" font-family="Segoe UI, Trebuchet MS, Arial, sans-serif" font-size="50" font-weight="700" letter-spacing="2">FIRMWARE BUILDER</text>
+</svg>

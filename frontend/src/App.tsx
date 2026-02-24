@@ -15,6 +15,9 @@ import { Locale, dict } from "./i18n";
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 
 export default function App() {
+  const supportChatUrl = "https://t.me/meshtastic_firmware_builder";
+  const supportChatRef = "t.me/meshtastic_firmware_builder";
+
   const [locale, setLocale] = useState<Locale>("ru");
   const [repoUrl, setRepoUrl] = useState("");
   const [ref, setRef] = useState("");
@@ -160,6 +163,7 @@ export default function App() {
     job?.status === "queued" && typeof job.queueEtaSeconds === "number" && job.queueEtaSeconds > 0
       ? t.queueEta.replace("{eta}", formatQueueETA(job.queueEtaSeconds, locale))
       : "";
+  const supportIntroParts = t.supportIntro.split("{chat}");
 
   return (
     <div className="page-shell">
@@ -299,6 +303,21 @@ export default function App() {
               ))}
             </ul>
           )}
+        </section>
+
+        <section className="panel support-panel">
+          <div className="panel-head">
+            <h2>{t.supportTitle}</h2>
+          </div>
+          <p className="support-note">
+            {supportIntroParts[0]}
+            <a href={supportChatUrl} target="_blank" rel="noreferrer">
+              {supportChatRef}
+            </a>
+            {supportIntroParts[1] ?? ""}
+          </p>
+          <p className="support-note">{t.supportDisclaimer}</p>
+          <p className="support-note">{t.supportTone}</p>
         </section>
 
         {error ? <section className="error-banner">{error}</section> : null}

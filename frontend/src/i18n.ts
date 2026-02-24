@@ -22,6 +22,10 @@ type Dictionary = {
   queueInfo: string;
   queueInfoWithPos: string;
   queueEta: string;
+  supportTitle: string;
+  supportIntro: string;
+  supportDisclaimer: string;
+  supportTone: string;
   autoScrollOn: string;
   autoScrollOff: string;
   clearLogs: string;
@@ -56,6 +60,12 @@ export const dict: Record<Locale, Dictionary> = {
     queueInfo: "Запрос ожидает в очереди",
     queueInfoWithPos: "Запрос ожидает в очереди. Позиция: {position}",
     queueEta: "Оценка ожидания: ~{eta}",
+    supportTitle: "Нужна помощь со сборкой?",
+    supportIntro:
+      "Если сборка завершилась с ошибкой, но вы уверены, что она должна проходить, приходите в чат: {chat}. Можно писать на русском и английском.",
+    supportDisclaimer:
+      "Важно: проект не связан с Meshtastic, не является коммерческим и поддерживается на добровольных и безвозмездных началах.",
+    supportTone: "Мы приветствуем вопросы и просьбы, но не требования.",
     autoScrollOn: "Автопрокрутка: вкл",
     autoScrollOff: "Автопрокрутка: выкл",
     clearLogs: "Очистить логи",
@@ -94,6 +104,12 @@ export const dict: Record<Locale, Dictionary> = {
     queueInfo: "Build request is waiting in queue",
     queueInfoWithPos: "Build request is waiting in queue. Position: {position}",
     queueEta: "Estimated wait: ~{eta}",
+    supportTitle: "Need help with a failed build?",
+    supportIntro:
+      "If a build fails but you are sure it should pass, join our chat: {chat}. Russian and English are both welcome.",
+    supportDisclaimer:
+      "Important: this project is not affiliated with Meshtastic, is non-commercial, and is maintained voluntarily without compensation.",
+    supportTone: "Questions and requests are welcome; demands are not.",
     autoScrollOn: "Autoscroll: on",
     autoScrollOff: "Autoscroll: off",
     clearLogs: "Clear logs",

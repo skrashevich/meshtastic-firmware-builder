@@ -1,0 +1,41 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="logoTitle logoDesc">
+  <title id="logoTitle">Meshtastic Firmware Builder Logo</title>
+  <desc id="logoDesc">Rounded-square icon with connected M nodes and project name text.</desc>
+  <defs>
+    <linearGradient id="bgGrad" x1="30" y1="24" x2="286" y2="296" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0FC3A7"/>
+      <stop offset="1" stop-color="#0E3A45"/>
+    </linearGradient>
+    <linearGradient id="lineGrad" x1="72" y1="80" x2="216" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F4D5"/>
+      <stop offset="1" stop-color="#E8FFF5"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="340" y1="72" x2="970" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0E3D4A"/>
+      <stop offset="1" stop-color="#0A8678"/>
+    </linearGradient>
+    <filter id="softGlow" x="0" y="0" width="320" height="320" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="320" rx="44" fill="#F4F8F6"/>
+
+  <rect x="30" y="24" width="256" height="272" rx="54" fill="url(#bgGrad)"/>
+  <path d="M72 184V82L128 138L184 82V184" stroke="url(#lineGrad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="72" cy="82" r="10" fill="#F7F4D5"/>
+  <circle cx="72" cy="184" r="10" fill="#F7F4D5"/>
+  <circle cx="128" cy="138" r="10" fill="#F7F4D5"/>
+  <circle cx="184" cy="82" r="10" fill="#F7F4D5"/>
+  <circle cx="184" cy="184" r="10" fill="#F7F4D5"/>
+  <circle cx="224" cy="102" r="8" fill="#7DF8DD"/>
+  <circle cx="224" cy="102" r="20" fill="#7DF8DD" opacity="0.22" filter="url(#softGlow)"/>
+  <path d="M198 93C206 84 217 79 229 79" stroke="#8CFDE4" stroke-width="6" stroke-linecap="round"/>
+  <path d="M206 113C212 107 219 104 227 104" stroke="#8CFDE4" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+
+  <g fill="url(#textGrad)">
+    <text x="340" y="126" font-family="Segoe UI, Trebuchet MS, Arial, sans-serif" font-size="84" font-weight="800" letter-spacing="2">MESHTASTIC</text>
+    <text x="340" y="204" font-family="Segoe UI, Trebuchet MS, Arial, sans-serif" font-size="64" font-weight="700">Firmware Builder</text>
+  </g>
+  <text x="344" y="252" fill="#44746E" font-family="Segoe UI, Trebuchet MS, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="1.8">Build reliable mesh firmware in one click</text>
+</svg>

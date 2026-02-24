@@ -203,6 +203,22 @@ a:focus {
   margin-top: 4px;
 }
 
+.support-panel {
+  border-color: rgba(15, 111, 100, 0.28);
+  background: #f4fcfa;
+}
+
+.support-note {
+  margin: 10px 0 0;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.support-note a {
+  color: #0a6f64;
+  font-weight: 700;
+}
+
 .status-chip {
   border-radius: 999px;
   border: 1px solid var(--line);

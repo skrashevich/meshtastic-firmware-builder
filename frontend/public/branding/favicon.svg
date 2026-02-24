@@ -1,0 +1,24 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="favTitle favDesc">
+  <title id="favTitle">Meshtastic Firmware Builder Favicon</title>
+  <desc id="favDesc">Rounded square with connected M shape and signal dot.</desc>
+  <defs>
+    <linearGradient id="favBg" x1="28" y1="20" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#11C8AA"/>
+      <stop offset="1" stop-color="#103547"/>
+    </linearGradient>
+    <linearGradient id="favLine" x1="62" y1="76" x2="194" y2="176" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFCE4"/>
+      <stop offset="1" stop-color="#E6FFF4"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="12" y="12" width="232" height="232" rx="52" fill="url(#favBg)"/>
+  <path d="M62 176V76L128 142L194 76V176" stroke="url(#favLine)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="62" cy="76" r="11" fill="#FFFCE4"/>
+  <circle cx="62" cy="176" r="11" fill="#FFFCE4"/>
+  <circle cx="128" cy="142" r="11" fill="#FFFCE4"/>
+  <circle cx="194" cy="76" r="11" fill="#FFFCE4"/>
+  <circle cx="194" cy="176" r="11" fill="#FFFCE4"/>
+  <circle cx="212" cy="92" r="8" fill="#A1FFEA"/>
+  <path d="M189 86C197 77 208 72 220 72" stroke="#A1FFEA" stroke-width="6" stroke-linecap="round"/>
+</svg>
