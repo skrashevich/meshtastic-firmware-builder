@@ -188,6 +188,17 @@ a:focus {
   font-size: 0.9rem;
 }
 
+.queue-note {
+  margin: 10px 0 0;
+  border: 1px solid #d8c588;
+  border-radius: 10px;
+  background: #fff9e9;
+  color: #6f5d1b;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .status-chip {
   border-radius: 999px;
   border: 1px solid var(--line);

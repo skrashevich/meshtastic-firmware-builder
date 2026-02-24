@@ -311,17 +311,18 @@ func (s *Server) writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func (s *Server) presentState(state jobs.State) stateResponse {
 	return stateResponse{
-		ID:         state.ID,
-		RepoURL:    state.RepoURL,
-		Ref:        state.Ref,
-		Device:     state.Device,
-		Status:     state.Status,
-		CreatedAt:  state.CreatedAt,
-		StartedAt:  state.StartedAt,
-		FinishedAt: state.FinishedAt,
-		Error:      state.Error,
-		LogLines:   state.LogLines,
-		Artifacts:  toArtifactViews(state.ID, state.Artifacts),
+		ID:            state.ID,
+		RepoURL:       state.RepoURL,
+		Ref:           state.Ref,
+		Device:        state.Device,
+		Status:        state.Status,
+		QueuePosition: state.QueuePosition,
+		CreatedAt:     state.CreatedAt,
+		StartedAt:     state.StartedAt,
+		FinishedAt:    state.FinishedAt,
+		Error:         state.Error,
+		LogLines:      state.LogLines,
+		Artifacts:     toArtifactViews(state.ID, state.Artifacts),
 	}
 }
 
@@ -420,17 +421,18 @@ type logsResponse struct {
 }
 
 type stateResponse struct {
-	ID         string         `json:"id"`
-	RepoURL    string         `json:"repoUrl"`
-	Ref        string         `json:"ref,omitempty"`
-	Device     string         `json:"device"`
-	Status     jobs.Status    `json:"status"`
-	CreatedAt  time.Time      `json:"createdAt"`
-	StartedAt  *time.Time     `json:"startedAt,omitempty"`
-	FinishedAt *time.Time     `json:"finishedAt,omitempty"`
-	Error      string         `json:"error,omitempty"`
-	LogLines   int            `json:"logLines"`
-	Artifacts  []artifactView `json:"artifacts"`
+	ID            string         `json:"id"`
+	RepoURL       string         `json:"repoUrl"`
+	Ref           string         `json:"ref,omitempty"`
+	Device        string         `json:"device"`
+	Status        jobs.Status    `json:"status"`
+	QueuePosition *int           `json:"queuePosition,omitempty"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	StartedAt     *time.Time     `json:"startedAt,omitempty"`
+	FinishedAt    *time.Time     `json:"finishedAt,omitempty"`
+	Error         string         `json:"error,omitempty"`
+	LogLines      int            `json:"logLines"`
+	Artifacts     []artifactView `json:"artifacts"`
 }
 
 type artifactsResponse struct {

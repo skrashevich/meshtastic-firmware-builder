@@ -19,6 +19,8 @@ type Dictionary = {
   artifacts: string;
   noArtifacts: string;
   logsHint: string;
+  queueInfo: string;
+  queueInfoWithPos: string;
   autoScrollOn: string;
   autoScrollOff: string;
   clearLogs: string;
@@ -50,6 +52,8 @@ export const dict: Record<Locale, Dictionary> = {
     artifacts: "Файлы прошивки",
     noArtifacts: "Файлы пока недоступны",
     logsHint: "Логи обновляются в реальном времени через SSE",
+    queueInfo: "Запрос ожидает в очереди",
+    queueInfoWithPos: "Запрос ожидает в очереди. Позиция: #{position}",
     autoScrollOn: "Автопрокрутка: вкл",
     autoScrollOff: "Автопрокрутка: выкл",
     clearLogs: "Очистить логи",
@@ -85,6 +89,8 @@ export const dict: Record<Locale, Dictionary> = {
     artifacts: "Firmware files",
     noArtifacts: "No files available yet",
     logsHint: "Logs are streamed in real time via SSE",
+    queueInfo: "Build request is waiting in queue",
+    queueInfoWithPos: "Build request is waiting in queue. Position: #{position}",
     autoScrollOn: "Autoscroll: on",
     autoScrollOff: "Autoscroll: off",
     clearLogs: "Clear logs",

@@ -150,6 +150,12 @@ export default function App() {
   }
 
   const statusLabel = job ? t.statuses[job.status] ?? job.status : "-";
+  const queueNote =
+    job?.status === "queued"
+      ? typeof job.queuePosition === "number" && job.queuePosition > 0
+        ? t.queueInfoWithPos.replace("{position}", String(job.queuePosition))
+        : t.queueInfo
+      : "";
 
   return (
     <div className="page-shell">
@@ -219,6 +225,8 @@ export default function App() {
               {t.status}: <strong>{statusLabel}</strong>
             </span>
           </div>
+
+          {queueNote ? <p className="queue-note">{queueNote}</p> : null}
 
           <div className="devices-grid">
             {devices.length === 0 ? <p className="muted">{t.noDevices}</p> : null}

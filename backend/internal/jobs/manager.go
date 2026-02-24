@@ -24,8 +24,9 @@ type Manager struct {
 	cfg    config.Config
 	logger *log.Logger
 
-	mu   sync.RWMutex
-	jobs map[string]*Job
+	mu         sync.RWMutex
+	jobs       map[string]*Job
+	queueOrder []string
 
 	queue  chan *Job
 	ctx    context.Context
@@ -37,13 +38,14 @@ type Manager struct {
 func NewManager(cfg config.Config, logger *log.Logger) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	mgr := &Manager{
-		cfg:    cfg,
-		logger: logger,
-		jobs:   make(map[string]*Job),
-		queue:  make(chan *Job, 128),
-		ctx:    ctx,
-		cancel: cancel,
-		now:    func() time.Time { return time.Now().UTC() },
+		cfg:        cfg,
+		logger:     logger,
+		jobs:       make(map[string]*Job),
+		queueOrder: make([]string, 0, 128),
+		queue:      make(chan *Job, 128),
+		ctx:        ctx,
+		cancel:     cancel,
+		now:        func() time.Time { return time.Now().UTC() },
 	}
 
 	for index := 0; index < cfg.ConcurrentBuilds; index++ {
@@ -98,6 +100,7 @@ func (m *Manager) CreateJob(repoURL string, ref string, device string) (State, e
 
 	m.mu.Lock()
 	m.jobs[jobID] = job
+	m.queueOrder = append(m.queueOrder, jobID)
 	m.mu.Unlock()
 
 	select {
@@ -106,7 +109,9 @@ func (m *Manager) CreateJob(repoURL string, ref string, device string) (State, e
 		return State{}, errors.New("service is shutting down")
 	}
 
-	return job.snapshot(), nil
+	state := job.snapshot()
+	m.attachQueuePosition(jobID, &state)
+	return state, nil
 }
 
 func (m *Manager) GetJob(jobID string) (State, error) {
@@ -114,7 +119,9 @@ func (m *Manager) GetJob(jobID string) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
-	return job.snapshot(), nil
+	state := job.snapshot()
+	m.attachQueuePosition(jobID, &state)
+	return state, nil
 }
 
 func (m *Manager) GetLogs(jobID string) ([]string, error) {
@@ -167,6 +174,7 @@ func (m *Manager) workerLoop(workerID int) {
 
 func (m *Manager) executeJob(job *Job) {
 	job.markRunning(m.now())
+	m.removeQueuedJob(job.ID)
 	job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("build started for device %s", job.Device))
 
 	if err := os.MkdirAll(job.Workspace, 0o755); err != nil {
@@ -255,6 +263,7 @@ func (m *Manager) cleanupExpiredJobs() {
 			continue
 		}
 		delete(m.jobs, jobID)
+		m.queueOrder = removeJobID(m.queueOrder, jobID)
 		removePaths = append(removePaths, job.Workspace)
 		removed++
 	}
@@ -279,6 +288,38 @@ func (m *Manager) getJob(jobID string) (*Job, error) {
 		return nil, ErrJobNotFound
 	}
 	return job, nil
+}
+
+func (m *Manager) attachQueuePosition(jobID string, state *State) {
+	if state == nil || state.Status != StatusQueued {
+		return
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for index, queuedID := range m.queueOrder {
+		if queuedID == jobID {
+			position := index + 1
+			state.QueuePosition = &position
+			return
+		}
+	}
+}
+
+func (m *Manager) removeQueuedJob(jobID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.queueOrder = removeJobID(m.queueOrder, jobID)
+}
+
+func removeJobID(queue []string, jobID string) []string {
+	for index, queuedID := range queue {
+		if queuedID != jobID {
+			continue
+		}
+		return append(queue[:index], queue[index+1:]...)
+	}
+	return queue
 }
 
 func generateJobID() (string, error) {

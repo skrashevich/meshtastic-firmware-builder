@@ -1,0 +1,55 @@
+package jobs
+
+import (
+	"io"
+	"log"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
+)
+
+func TestQueuePositionForQueuedJobs(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	mgr := NewManager(config.Config{
+		ConcurrentBuilds: 0,
+		JobsRootPath:     filepath.Join(workDir, "jobs"),
+		MaxLogLines:      200,
+		CleanupInterval:  time.Hour,
+	}, log.New(io.Discard, "", 0))
+	defer mgr.Close()
+
+	first, err := mgr.CreateJob("https://github.com/example/repo.git", "main", "tbeam")
+	if err != nil {
+		t.Fatalf("create first job: %v", err)
+	}
+	second, err := mgr.CreateJob("https://github.com/example/repo.git", "main", "tbeam")
+	if err != nil {
+		t.Fatalf("create second job: %v", err)
+	}
+
+	if first.Status != StatusQueued {
+		t.Fatalf("first job status: got=%s want=%s", first.Status, StatusQueued)
+	}
+	if second.Status != StatusQueued {
+		t.Fatalf("second job status: got=%s want=%s", second.Status, StatusQueued)
+	}
+
+	if first.QueuePosition == nil || *first.QueuePosition != 1 {
+		t.Fatalf("first job queue position: got=%v want=1", first.QueuePosition)
+	}
+	if second.QueuePosition == nil || *second.QueuePosition != 2 {
+		t.Fatalf("second job queue position: got=%v want=2", second.QueuePosition)
+	}
+
+	secondState, err := mgr.GetJob(second.ID)
+	if err != nil {
+		t.Fatalf("get second job: %v", err)
+	}
+	if secondState.QueuePosition == nil || *secondState.QueuePosition != 2 {
+		t.Fatalf("second job queue position from GetJob: got=%v want=2", secondState.QueuePosition)
+	}
+}
