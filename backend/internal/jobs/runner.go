@@ -13,6 +13,9 @@ import (
 
 func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string, device string, onLine func(string)) error {
 	containerProjectPath := "/workspace/repo"
+	containerPlatformIOPath := "/root/.platformio"
+	containerBuildCachePath := "/root/.platformio/build-cache"
+	containerCCachePath := "/root/.platformio/.cache/ccache"
 
 	hostRepoPath, err := resolveDockerHostPath(repoPath, cfg.WorkDir, cfg.DockerHostWorkDir)
 	if err != nil {
@@ -30,13 +33,21 @@ func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string
 	}
 
 	repoMount := fmt.Sprintf("%s:/workspace/repo", hostRepoPath)
-	cacheMount := fmt.Sprintf("%s:/root/.platformio", hostCachePath)
+	cacheMount := fmt.Sprintf("%s:%s", hostCachePath, containerPlatformIOPath)
 
 	args := []string{
 		"run",
 		"--rm",
 		"-e", "CI=true",
 		"-e", "PLATFORMIO_NO_ANSI=true",
+		"-e", "PLATFORMIO_RUN_JOBS=" + strconv.Itoa(cfg.PlatformIOJobs),
+		"-e", "PLATFORMIO_BUILD_CACHE_DIR=" + containerBuildCachePath,
+		"-e", "CCACHE_DIR=" + containerCCachePath,
+		"-e", "CCACHE_BASEDIR=" + containerProjectPath,
+		"-e", "CCACHE_COMPILERCHECK=content",
+		"-e", "CCACHE_NOHASHDIR=true",
+		"-e", "CCACHE_SLOPPINESS=time_macros",
+		"-e", "CCACHE_MAXSIZE=2G",
 		"-v", repoMount,
 		"-v", cacheMount,
 		"-w", containerProjectPath,

@@ -30,6 +30,11 @@ User flow:
 make builder-image
 ```
 
+Builder image includes build accelerators:
+- `mklittlefs` tool preinstalled;
+- `ccache` enabled for common embedded GCC toolchains;
+- `PLATFORMIO_BUILD_CACHE_DIR` enabled inside persistent PlatformIO cache.
+
 ### 2) Start backend
 
 ```bash
@@ -186,8 +191,14 @@ Important defaults:
 - `APP_BUILD_TIMEOUT_MINUTES=90`
 - `APP_ALLOWED_ORIGINS=http://localhost:5173`
 - `APP_BUILD_RATE_LIMIT_PER_MINUTE=10`
+- `APP_PLATFORMIO_CACHE_DIR=./build-workdir/platformio-cache`
 - `APP_DOCKER_HOST_WORKDIR=/absolute/path/.../build-workdir` (required for Dockerized backend)
 - `APP_DOCKER_HOST_CACHE_DIR=/absolute/path/.../build-workdir/platformio-cache` (recommended)
+
+Build speed notes:
+- Backend runs builds with `PLATFORMIO_BUILD_CACHE_DIR=/root/.platformio/build-cache`.
+- `ccache` cache and PlatformIO cache both live under mounted `/root/.platformio`, so repeated builds are significantly faster.
+- Git submodules are updated in parallel (`--jobs 8`) with compatibility fallback.
 
 ## Security notes
 

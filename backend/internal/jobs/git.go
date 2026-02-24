@@ -8,7 +8,7 @@ import (
 )
 
 func cloneRepository(ctx context.Context, repoURL string, ref string, destination string, onLine func(string)) error {
-	cloneArgs := []string{"clone", "--depth", "1", repoURL, destination}
+	cloneArgs := []string{"clone", "--depth", "1", "--single-branch", repoURL, destination}
 	if err := runGit(ctx, onLine, cloneArgs...); err != nil {
 		return fmt.Errorf("clone repository: %w", err)
 	}
@@ -27,8 +27,23 @@ func cloneRepository(ctx context.Context, repoURL string, ref string, destinatio
 		}
 	}
 
-	if err := runGit(ctx, onLine, "-C", destination, "submodule", "update", "--init", "--recursive", "--depth", "1"); err != nil {
-		return fmt.Errorf("update submodules: %w", err)
+	optimizedSubmoduleArgs := []string{
+		"-C", destination,
+		"-c", "submodule.fetchJobs=8",
+		"submodule", "update",
+		"--init",
+		"--recursive",
+		"--depth", "1",
+		"--jobs", "8",
+		"--recommend-shallow",
+	}
+	if err := runGit(ctx, onLine, optimizedSubmoduleArgs...); err != nil {
+		if onLine != nil {
+			onLine("submodule optimized mode failed, retrying with compatibility flags")
+		}
+		if fallbackErr := runGit(ctx, onLine, "-C", destination, "submodule", "update", "--init", "--recursive", "--depth", "1"); fallbackErr != nil {
+			return fmt.Errorf("update submodules: %w", fallbackErr)
+		}
 	}
 
 	return nil
