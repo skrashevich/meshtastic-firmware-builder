@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"sync"
 )
@@ -50,14 +51,18 @@ func runCommandStreaming(ctx context.Context, cmd *exec.Cmd, onLine func(string)
 	go consume(stdoutPipe)
 	go consume(stderrPipe)
 
-	waitErr := cmd.Wait()
 	wg.Wait()
+	waitErr := cmd.Wait()
 
 	if waitErr != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		return fmt.Errorf("command failed: %w", waitErr)
+	}
+
+	if errors.Is(readErr, os.ErrClosed) {
+		readErr = nil
 	}
 
 	if readErr != nil {
