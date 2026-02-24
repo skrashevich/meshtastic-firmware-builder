@@ -55,7 +55,7 @@ func TestListVariantDirectories(t *testing.T) {
 		t.Fatalf("listVariantDirectories failed: %v", err)
 	}
 
-	want := []string{"heltec-v3", "tbeam"}
+	want := []string{"esp32/heltec-v3", "esp32/tbeam", "nrf52840/tbeam"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected variants: got=%v want=%v", got, want)
 	}
@@ -80,13 +80,37 @@ func TestFindVariantProjectPath(t *testing.T) {
 		t.Fatalf("create nrf config: %v", err)
 	}
 
-	path, err := findVariantProjectPath(root, "tbeam")
+	project, err := findVariantProject(root, "esp32/tbeam")
 	if err != nil {
-		t.Fatalf("findVariantProjectPath failed: %v", err)
+		t.Fatalf("findVariantProject failed: %v", err)
 	}
 
 	want := filepath.Join(variantsDir, "esp32", "tbeam")
-	if path != want {
-		t.Fatalf("unexpected project path: got=%q want=%q", path, want)
+	if project.AbsolutePath != want {
+		t.Fatalf("unexpected project path: got=%q want=%q", project.AbsolutePath, want)
+	}
+}
+
+func TestFindVariantProjectRejectsAmbiguousName(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	variantsDir := filepath.Join(root, "variants")
+	if err := os.MkdirAll(filepath.Join(variantsDir, "esp32", "diy"), 0o755); err != nil {
+		t.Fatalf("create esp32/diy: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(variantsDir, "nrf52840", "diy"), 0o755); err != nil {
+		t.Fatalf("create nrf52840/diy: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(variantsDir, "esp32", "diy", "platformio.ini"), []byte("[env:diy]\n"), 0o644); err != nil {
+		t.Fatalf("create esp32 config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(variantsDir, "nrf52840", "diy", "platformio.ini"), []byte("[env:diy]\n"), 0o644); err != nil {
+		t.Fatalf("create nrf config: %v", err)
+	}
+
+	_, err := findVariantProject(root, "diy")
+	if err == nil {
+		t.Fatalf("expected ambiguity error")
 	}
 }

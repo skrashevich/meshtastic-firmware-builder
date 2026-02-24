@@ -11,8 +11,9 @@ import (
 )
 
 type variantProject struct {
-	Name string
-	Path string
+	Name         string
+	RelativePath string
+	AbsolutePath string
 }
 
 func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, ref string) ([]string, error) {
@@ -46,52 +47,60 @@ func listVariantDirectories(repoPath string) ([]string, error) {
 	}
 
 	devices := make([]string, 0, len(entries))
-	seen := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
-		name := strings.TrimSpace(entry.Name)
-		if name == "" {
+		relative := strings.TrimSpace(entry.RelativePath)
+		if relative == "" {
 			continue
 		}
-		if err := ValidateDevice(name); err != nil {
+		if err := ValidateDeviceSelection(relative); err != nil {
 			continue
 		}
-		if _, exists := seen[name]; exists {
-			continue
-		}
-		seen[name] = struct{}{}
-		devices = append(devices, name)
+		devices = append(devices, relative)
 	}
 
 	sort.Strings(devices)
 	return devices, nil
 }
 
-func variantExists(repoPath string, device string) (bool, error) {
-	projectPath, err := findVariantProjectPath(repoPath, device)
-	if err != nil {
-		return false, err
-	}
-	return projectPath != "", nil
-}
-
-func findVariantProjectPath(repoPath string, device string) (string, error) {
-	if err := ValidateDevice(device); err != nil {
-		return "", err
+func findVariantProject(repoPath string, selection string) (variantProject, error) {
+	if err := ValidateDeviceSelection(selection); err != nil {
+		return variantProject{}, err
 	}
 
 	variantsDir := filepath.Join(repoPath, "variants")
 	entries, err := collectVariantProjects(variantsDir)
 	if err != nil {
-		return "", err
+		return variantProject{}, err
 	}
 
+	normalizedSelection := filepath.ToSlash(strings.TrimSpace(selection))
+	if strings.Contains(normalizedSelection, "/") {
+		for _, entry := range entries {
+			if entry.RelativePath == normalizedSelection {
+				return entry, nil
+			}
+		}
+		return variantProject{}, nil
+	}
+
+	matches := make([]variantProject, 0, 4)
 	for _, entry := range entries {
-		if entry.Name == device {
-			return entry.Path, nil
+		if entry.Name == normalizedSelection {
+			matches = append(matches, entry)
 		}
 	}
+	if len(matches) == 0 {
+		return variantProject{}, nil
+	}
+	if len(matches) > 1 {
+		paths := make([]string, 0, len(matches))
+		for _, match := range matches {
+			paths = append(paths, match.RelativePath)
+		}
+		return variantProject{}, fmt.Errorf("device %q is ambiguous, choose one of: %s", normalizedSelection, strings.Join(paths, ", "))
+	}
 
-	return "", nil
+	return matches[0], nil
 }
 
 func collectVariantProjects(variantsDir string) ([]variantProject, error) {
@@ -125,12 +134,25 @@ func collectVariantProjects(variantsDir string) ([]variantProject, error) {
 			return nil
 		}
 
-		entries = append(entries, variantProject{Name: name, Path: path})
+		relPath, err := filepath.Rel(variantsDir, path)
+		if err != nil {
+			return err
+		}
+
+		entries = append(entries, variantProject{
+			Name:         name,
+			RelativePath: filepath.ToSlash(relPath),
+			AbsolutePath: path,
+		})
 		return filepath.SkipDir
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read variants directory: %w", err)
 	}
+
+	sort.Slice(entries, func(i int, j int) bool {
+		return entries[i].RelativePath < entries[j].RelativePath
+	})
 
 	return entries, nil
 }

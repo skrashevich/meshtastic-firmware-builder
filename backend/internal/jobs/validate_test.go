@@ -60,4 +60,12 @@ func TestValidateDeviceAndRef(t *testing.T) {
 	if err := ValidateRef("bad ref"); err == nil {
 		t.Fatalf("expected invalid ref")
 	}
+
+	if err := ValidateDeviceSelection("nrf52840/t-echo"); err != nil {
+		t.Fatalf("expected valid device selection, got %v", err)
+	}
+
+	if err := ValidateDeviceSelection("../escape"); err == nil {
+		t.Fatalf("expected invalid device selection")
+	}
 }

@@ -84,7 +84,7 @@ func (m *Manager) CreateJob(repoURL string, ref string, device string) (State, e
 	if err := ValidateRef(ref); err != nil {
 		return State{}, err
 	}
-	if err := ValidateDevice(device); err != nil {
+	if err := ValidateDeviceSelection(device); err != nil {
 		return State{}, err
 	}
 
@@ -187,27 +187,21 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
-	exists, err := variantExists(repoPath, job.Device)
+	project, err := findVariantProject(repoPath, job.Device)
 	if err != nil {
 		m.failJob(job, err)
 		return
 	}
-	if !exists {
-		m.failJob(job, fmt.Errorf("device %q was not found in variants directory", job.Device))
-		return
-	}
-
-	projectPath, err := findVariantProjectPath(repoPath, job.Device)
-	if err != nil {
-		m.failJob(job, err)
-		return
-	}
-	if projectPath == "" {
+	if project.AbsolutePath == "" {
 		m.failJob(job, fmt.Errorf("device %q has no platformio.ini in variants", job.Device))
 		return
 	}
+	if err := ValidateDevice(project.Name); err != nil {
+		m.failJob(job, fmt.Errorf("invalid environment name for %q", job.Device))
+		return
+	}
 
-	if err := runBuildInContainer(ctx, m.cfg, repoPath, projectPath, job.Device, onLog); err != nil {
+	if err := runBuildInContainer(ctx, m.cfg, repoPath, project.Name, onLog); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			m.failJob(job, fmt.Errorf("build timeout reached after %s", m.cfg.BuildTimeout))
 			return
@@ -220,7 +214,7 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
-	artifacts, err := collectArtifacts(projectPath, job.Device)
+	artifacts, err := collectArtifacts(repoPath, project.Name)
 	if err != nil {
 		m.failJob(job, err)
 		return
