@@ -153,6 +153,69 @@ body {
   font-size: 0.93rem;
 }
 
+.refs-meta {
+  margin: -2px 0 0;
+}
+
+.ref-error {
+  margin: -2px 0 0;
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.ref-group {
+  display: grid;
+  gap: 6px;
+}
+
+.ref-group p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+.ref-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ref-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f3f8f6;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.ref-chip.active {
+  border-color: var(--accent);
+  background: #e6f6f2;
+}
+
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.captcha-question {
+  flex: 1;
+  min-height: 42px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: #f5faf8;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-weight: 600;
+}
+
 input:not([type="radio"]) {
   width: 100%;
   border: 1px solid var(--line);

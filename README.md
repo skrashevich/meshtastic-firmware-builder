@@ -3,10 +3,10 @@
 Web application for building Meshtastic firmware from non-official fork repositories.
 
 User flow:
-1. User provides repository URL and optional branch/tag/commit.
-2. Backend clones repository and lists devices from `variants/`.
-3. User selects a device.
-4. Backend runs `pio run -e <device>` inside Docker container.
+1. User provides repository URL.
+2. Frontend loads default branch, recent branches, and recent tags (manual ref input still available).
+3. User solves captcha and selects device.
+4. Backend clones repository and runs `pio run -e <target>` inside Docker container.
 5. Frontend shows live build logs and firmware download links.
 
 ## Stack
@@ -166,8 +166,13 @@ In Docker Compose mode, frontend proxies `/api/*` to backend internally, so brow
 - `POST /api/repos/discover`
   - Body: `{ "repoUrl": "...", "ref": "main" }`
   - Returns build targets discovered from `[env:*]` sections in `variants/**/platformio.ini`
+- `POST /api/repos/refs`
+  - Body: `{ "repoUrl": "..." }`
+  - Returns `defaultBranch`, recent branches, and recent tags for UI ref picker
+- `GET /api/captcha`
+  - Returns one-time captcha challenge (`captchaId`, `question`, `expiresAt`)
 - `POST /api/jobs`
-  - Body: `{ "repoUrl": "...", "ref": "main", "device": "tbeam" }`
+  - Body: `{ "repoUrl": "...", "ref": "main", "device": "tbeam", "captchaId": "...", "captchaAnswer": "..." }`
   - Creates build job
 - `GET /api/jobs/{jobId}`
   - Returns current status (`queued|running|success|failed|cancelled`)
@@ -207,6 +212,7 @@ Build speed notes:
 - Workspaces are isolated per job under `build-workdir/jobs/{jobId}`
 - Artifacts are served only from files registered for that job
 - Build creation endpoint has per-client in-memory rate limiting
+- Build creation endpoint requires one-time captcha validation
 
 ## Testing
 

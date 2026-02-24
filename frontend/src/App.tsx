@@ -1,12 +1,16 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   ArtifactItem,
+  CaptchaChallenge,
   JobState,
   JobStatus,
+  RepoRefsResponse,
   apiUrl,
   createBuildJob,
   createLogStream,
   discoverDevices,
+  discoverRepoRefs,
+  getCaptchaChallenge,
   getArtifacts,
   getJob,
 } from "./api";
@@ -21,6 +25,12 @@ export default function App() {
   const [locale, setLocale] = useState<Locale>("ru");
   const [repoUrl, setRepoUrl] = useState("");
   const [ref, setRef] = useState("");
+  const [repoRefs, setRepoRefs] = useState<RepoRefsResponse | null>(null);
+  const [refsLoading, setRefsLoading] = useState(false);
+  const [refsError, setRefsError] = useState("");
+  const [captcha, setCaptcha] = useState<CaptchaChallenge | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [captchaLoading, setCaptchaLoading] = useState(false);
   const [devices, setDevices] = useState<string[]>([]);
   const [selectedDevice, setSelectedDevice] = useState("");
 
@@ -34,6 +44,7 @@ export default function App() {
   const [error, setError] = useState("");
 
   const streamRef = useRef<EventSource | null>(null);
+  const refsRepoRef = useRef("");
   const logsTailRef = useRef<HTMLDivElement | null>(null);
 
   const t = dict[locale];
@@ -52,6 +63,71 @@ export default function App() {
     }
     logsTailRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs, autoScroll]);
+
+  useEffect(() => {
+    const trimmedRepo = repoUrl.trim();
+    if (!trimmedRepo || !looksLikeRepoURL(trimmedRepo)) {
+      setRepoRefs(null);
+      setRefsError("");
+      if (!trimmedRepo) {
+        refsRepoRef.current = "";
+      }
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutID = window.setTimeout(async () => {
+      setRefsLoading(true);
+      setRefsError("");
+      try {
+        const refsData = await discoverRepoRefs(trimmedRepo, controller.signal);
+        setRepoRefs(refsData);
+
+        const repoChanged = refsRepoRef.current !== trimmedRepo;
+        refsRepoRef.current = trimmedRepo;
+        if (repoChanged && refsData.defaultBranch) {
+          setRef(refsData.defaultBranch);
+        }
+      } catch (requestError) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setRepoRefs(null);
+        setRefsError(errorToMessage(requestError, t.unknownError));
+      } finally {
+        if (!controller.signal.aborted) {
+          setRefsLoading(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutID);
+    };
+  }, [repoUrl, t.unknownError]);
+
+  useEffect(() => {
+    void refreshCaptcha();
+  }, []);
+
+  async function refreshCaptcha() {
+    setCaptchaLoading(true);
+    try {
+      const challenge = await getCaptchaChallenge();
+      setCaptcha(challenge);
+      setCaptchaAnswer("");
+    } catch (requestError) {
+      setCaptcha(null);
+      setError(errorToMessage(requestError, t.unknownError));
+    } finally {
+      setCaptchaLoading(false);
+    }
+  }
+
+  function applyRefChoice(value: string) {
+    setRef(value);
+  }
 
   useEffect(() => {
     if (!job?.id) {
@@ -112,16 +188,28 @@ export default function App() {
       setError(t.chooseDevice);
       return;
     }
+    if (!captcha || !captchaAnswer.trim()) {
+      setError(t.captchaRequired);
+      return;
+    }
 
     setStartingBuild(true);
     try {
-      const created = await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice);
+      const created = await createBuildJob(
+        repoUrl.trim(),
+        ref.trim(),
+        selectedDevice,
+        captcha.captchaId,
+        captchaAnswer.trim(),
+      );
       setJob(created);
       setArtifacts([]);
       setLogs([]);
       openStream(created.id);
+      void refreshCaptcha();
     } catch (requestError) {
       setError(errorToMessage(requestError, t.unknownError));
+      void refreshCaptcha();
     } finally {
       setStartingBuild(false);
     }
@@ -164,6 +252,14 @@ export default function App() {
       ? t.queueEta.replace("{eta}", formatQueueETA(job.queueEtaSeconds, locale))
       : "";
   const supportIntroParts = t.supportIntro.split("{chat}");
+  const defaultBranchNote =
+    repoRefs?.defaultBranch && repoRefs.defaultBranch.trim()
+      ? t.refsDefaultBranch.replace("{branch}", repoRefs.defaultBranch)
+      : "";
+  const refsErrorNote = refsError ? t.refsLoadFailed.replace("{error}", refsError) : "";
+  const branchSuggestions = repoRefs ? limitRefItems(repoRefs.recentBranches, 8) : [];
+  const tagSuggestions = repoRefs ? limitRefItems(repoRefs.recentTags, 8) : [];
+  const refInputSuggestions = collectRefSuggestions(repoRefs);
 
   return (
     <div className="page-shell">
@@ -217,6 +313,70 @@ export default function App() {
                 value={ref}
                 onChange={(event) => setRef(event.target.value)}
                 placeholder={t.refPlaceholder}
+                list="repo-ref-options"
+              />
+            </label>
+
+            <datalist id="repo-ref-options">
+              {refInputSuggestions.map((refName) => (
+                <option key={refName} value={refName} />
+              ))}
+            </datalist>
+
+            {refsLoading ? <p className="muted refs-meta">{t.refsLoading}</p> : null}
+            {defaultBranchNote ? <p className="muted refs-meta">{defaultBranchNote}</p> : null}
+            {refsErrorNote ? <p className="ref-error">{refsErrorNote}</p> : null}
+
+            {branchSuggestions.length > 0 ? (
+              <div className="ref-group">
+                <p>{t.refsRecentBranches}</p>
+                <div className="ref-chips">
+                  {branchSuggestions.map((branch) => (
+                    <button
+                      key={`branch-${branch.name}`}
+                      className={ref === branch.name ? "ref-chip active" : "ref-chip"}
+                      type="button"
+                      onClick={() => applyRefChoice(branch.name)}
+                      title={branch.updatedAt ?? branch.name}
+                    >
+                      {branch.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {tagSuggestions.length > 0 ? (
+              <div className="ref-group">
+                <p>{t.refsRecentTags}</p>
+                <div className="ref-chips">
+                  {tagSuggestions.map((tag) => (
+                    <button
+                      key={`tag-${tag.name}`}
+                      className={ref === tag.name ? "ref-chip active" : "ref-chip"}
+                      type="button"
+                      onClick={() => applyRefChoice(tag.name)}
+                      title={tag.updatedAt ?? tag.name}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <label>
+              <span>{t.captchaLabel}</span>
+              <div className="captcha-row">
+                <div className="captcha-question">{captchaLoading ? t.captchaLoading : captcha?.question ?? t.captchaLoading}</div>
+                <button className="ghost" type="button" onClick={() => void refreshCaptcha()} disabled={captchaLoading}>
+                  {t.captchaRefresh}
+                </button>
+              </div>
+              <input
+                value={captchaAnswer}
+                onChange={(event) => setCaptchaAnswer(event.target.value)}
+                placeholder={t.captchaPlaceholder}
               />
             </label>
 
@@ -255,7 +415,7 @@ export default function App() {
               className="primary"
               onClick={onStartBuild}
               type="button"
-              disabled={!selectedDevice || startingBuild}
+              disabled={!selectedDevice || startingBuild || captchaLoading || !captcha || !captchaAnswer.trim()}
             >
               {startingBuild ? t.startingBuild : t.startBuild}
             </button>
@@ -365,4 +525,50 @@ function formatQueueETA(seconds: number, locale: Locale): string {
     return `${hours}h`;
   }
   return `${totalMinutes}m`;
+}
+
+function collectRefSuggestions(repoRefs: RepoRefsResponse | null): string[] {
+  if (!repoRefs) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  if (repoRefs.defaultBranch) {
+    const branch = repoRefs.defaultBranch.trim();
+    if (branch && !seen.has(branch)) {
+      seen.add(branch);
+      result.push(branch);
+    }
+  }
+
+  for (const item of repoRefs.recentBranches) {
+    if (!item.name || seen.has(item.name)) {
+      continue;
+    }
+    seen.add(item.name);
+    result.push(item.name);
+  }
+
+  for (const item of repoRefs.recentTags) {
+    if (!item.name || seen.has(item.name)) {
+      continue;
+    }
+    seen.add(item.name);
+    result.push(item.name);
+  }
+
+  return result;
+}
+
+function limitRefItems<T extends { name: string }>(items: T[], limit: number): T[] {
+  if (limit < 1 || items.length <= limit) {
+    return items;
+  }
+  return items.slice(0, limit);
+}
+
+function looksLikeRepoURL(value: string): boolean {
+  return /^(https?:\/\/|ssh:\/\/|git:\/\/|git@)/.test(value);
 }

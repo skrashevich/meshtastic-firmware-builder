@@ -79,6 +79,18 @@ func (m *Manager) Discover(ctx context.Context, repoURL string, ref string) ([]s
 	return devices, nil
 }
 
+func (m *Manager) DiscoverRefs(ctx context.Context, repoURL string) (RepoRefs, error) {
+	if err := ValidateRepoURL(repoURL); err != nil {
+		return RepoRefs{}, err
+	}
+
+	refs, err := discoverRefs(ctx, m.cfg.DiscoveryRootPath, repoURL)
+	if err != nil {
+		return RepoRefs{}, err
+	}
+	return refs, nil
+}
+
 func (m *Manager) CreateJob(repoURL string, ref string, device string) (State, error) {
 	if err := ValidateRepoURL(repoURL); err != nil {
 		return State{}, err

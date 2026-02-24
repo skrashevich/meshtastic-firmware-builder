@@ -30,6 +30,25 @@ export interface DiscoverResponse {
   devices: string[];
 }
 
+export interface RepoRefItem {
+  name: string;
+  commit?: string;
+  updatedAt?: string;
+}
+
+export interface RepoRefsResponse {
+  repoUrl: string;
+  defaultBranch?: string;
+  recentBranches: RepoRefItem[];
+  recentTags: RepoRefItem[];
+}
+
+export interface CaptchaChallenge {
+  captchaId: string;
+  question: string;
+  expiresAt: string;
+}
+
 export interface LogsSnapshot {
   lines: string[];
 }
@@ -47,10 +66,30 @@ export async function discoverDevices(repoUrl: string, ref: string): Promise<Dis
   });
 }
 
-export async function createBuildJob(repoUrl: string, ref: string, device: string): Promise<JobState> {
+export async function discoverRepoRefs(repoUrl: string, signal?: AbortSignal): Promise<RepoRefsResponse> {
+  return request<RepoRefsResponse>("/api/repos/refs", {
+    method: "POST",
+    body: JSON.stringify({ repoUrl }),
+    signal,
+  });
+}
+
+export async function createBuildJob(
+  repoUrl: string,
+  ref: string,
+  device: string,
+  captchaId: string,
+  captchaAnswer: string,
+): Promise<JobState> {
   return request<JobState>("/api/jobs", {
     method: "POST",
-    body: JSON.stringify({ repoUrl, ref, device }),
+    body: JSON.stringify({ repoUrl, ref, device, captchaId, captchaAnswer }),
+  });
+}
+
+export async function getCaptchaChallenge(): Promise<CaptchaChallenge> {
+  return request<CaptchaChallenge>("/api/captcha", {
+    method: "GET",
   });
 }
 

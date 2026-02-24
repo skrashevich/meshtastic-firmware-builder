@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -26,6 +25,8 @@ type Server struct {
 	allowedOrigins map[string]struct{}
 	rateMu         sync.Mutex
 	buildRequests  map[string][]time.Time
+	captchaMu      sync.Mutex
+	captchas       map[string]captchaChallenge
 }
 
 func NewServer(cfg config.Config, manager *jobs.Manager, logger *log.Logger) *Server {
@@ -40,6 +41,7 @@ func NewServer(cfg config.Config, manager *jobs.Manager, logger *log.Logger) *Se
 		logger:         logger,
 		allowedOrigins: allowed,
 		buildRequests:  make(map[string][]time.Time),
+		captchas:       make(map[string]captchaChallenge),
 	}
 }
 
@@ -63,6 +65,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodPost && r.URL.Path == "/api/repos/discover" {
 		s.handleDiscover(w, r, requestID)
+		return
+	}
+
+	if r.Method == http.MethodPost && r.URL.Path == "/api/repos/refs" {
+		s.handleRepoRefs(w, r, requestID)
+		return
+	}
+
+	if r.Method == http.MethodGet && r.URL.Path == "/api/captcha" {
+		s.handleNewCaptcha(w, r, requestID)
 		return
 	}
 
@@ -100,10 +112,37 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 	s.writeSuccess(w, http.StatusOK, requestID, data)
 }
 
+func (s *Server) handleRepoRefs(w http.ResponseWriter, r *http.Request, requestID string) {
+	var req repoRefsRequest
+	if err := decodeJSON(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_REQUEST", err.Error(), nil)
+		return
+	}
+
+	refs, err := s.manager.DiscoverRefs(r.Context(), req.RepoURL)
+	if err != nil {
+		s.writeError(w, http.StatusUnprocessableEntity, requestID, "REFS_DISCOVERY_FAILED", err.Error(), nil)
+		return
+	}
+
+	data := repoRefsResponse{
+		RepoURL:        req.RepoURL,
+		DefaultBranch:  refs.DefaultBranch,
+		RecentBranches: toRepoRefViews(refs.RecentBranches),
+		RecentTags:     toRepoRefViews(refs.RecentTags),
+	}
+	s.writeSuccess(w, http.StatusOK, requestID, data)
+}
+
 func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, requestID string) {
 	var req createJobRequest
 	if err := decodeJSON(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_REQUEST", err.Error(), nil)
+		return
+	}
+
+	if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
+		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
 		return
 	}
 
@@ -119,6 +158,16 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 	}
 
 	s.writeSuccess(w, http.StatusCreated, requestID, s.presentState(state))
+}
+
+func (s *Server) handleNewCaptcha(w http.ResponseWriter, r *http.Request, requestID string) {
+	challenge, err := s.newCaptcha(r.RemoteAddr)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_GENERATION_FAILED", err.Error(), nil)
+		return
+	}
+
+	s.writeSuccess(w, http.StatusOK, requestID, challenge)
 }
 
 func (s *Server) handleJobRoutes(w http.ResponseWriter, r *http.Request, requestID string) {
@@ -341,6 +390,18 @@ func toArtifactViews(jobID string, artifacts []jobs.Artifact) []artifactView {
 	return views
 }
 
+func toRepoRefViews(refs []jobs.RepoRef) []repoRefView {
+	views := make([]repoRefView, len(refs))
+	for index, ref := range refs {
+		views[index] = repoRefView{
+			Name:      ref.Name,
+			Commit:    ref.Commit,
+			UpdatedAt: ref.UpdatedAt,
+		}
+	}
+	return views
+}
+
 func decodeJSON(r *http.Request, target any) error {
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
@@ -371,10 +432,7 @@ func generateRequestID() string {
 }
 
 func (s *Server) allowBuildRequest(remoteAddr string) bool {
-	host := remoteAddr
-	if parsedHost, _, err := net.SplitHostPort(remoteAddr); err == nil {
-		host = parsedHost
-	}
+	host := normalizeRemoteHost(remoteAddr)
 
 	now := time.Now().UTC()
 	threshold := now.Add(-1 * time.Minute)
@@ -405,16 +463,35 @@ type discoverRequest struct {
 	Ref     string `json:"ref"`
 }
 
+type repoRefsRequest struct {
+	RepoURL string `json:"repoUrl"`
+}
+
 type discoverResponse struct {
 	RepoURL string   `json:"repoUrl"`
 	Ref     string   `json:"ref,omitempty"`
 	Devices []string `json:"devices"`
 }
 
+type repoRefsResponse struct {
+	RepoURL        string        `json:"repoUrl"`
+	DefaultBranch  string        `json:"defaultBranch,omitempty"`
+	RecentBranches []repoRefView `json:"recentBranches"`
+	RecentTags     []repoRefView `json:"recentTags"`
+}
+
 type createJobRequest struct {
-	RepoURL string `json:"repoUrl"`
-	Ref     string `json:"ref"`
-	Device  string `json:"device"`
+	RepoURL       string `json:"repoUrl"`
+	Ref           string `json:"ref"`
+	Device        string `json:"device"`
+	CaptchaID     string `json:"captchaId"`
+	CaptchaAnswer string `json:"captchaAnswer"`
+}
+
+type captchaResponse struct {
+	CaptchaID string    `json:"captchaId"`
+	Question  string    `json:"question"`
+	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 type logsResponse struct {
@@ -447,4 +524,10 @@ type artifactView struct {
 	RelativePath string `json:"relativePath"`
 	Size         int64  `json:"size"`
 	DownloadURL  string `json:"downloadUrl"`
+}
+
+type repoRefView struct {
+	Name      string     `json:"name"`
+	Commit    string     `json:"commit,omitempty"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
