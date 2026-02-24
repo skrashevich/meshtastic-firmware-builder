@@ -92,3 +92,28 @@
 - [ ] Build history and persistent metadata (SQLite/Postgres).
 - [ ] Optional auth and per-user quotas.
 - [ ] Optional WebSocket mode for bi-directional control (cancel/restart).
+
+## 11) Production Deployment Plan
+- [ ] Prepare production orchestration:
+  - add `deploy/docker-compose.prod.yml` with network separation, `restart: unless-stopped`, healthchecks, resource limits, log rotation;
+  - expose only reverse proxy publicly, keep backend internal;
+  - add `deploy/Caddyfile` with automatic TLS.
+- [ ] Harden backend for production:
+  - request logging middleware (`requestId`, method, path, status, latency);
+  - trusted client IP extraction behind reverse proxy (`X-Forwarded-For` with config guard);
+  - security headers + strict CORS for production origins;
+  - add readiness endpoint.
+- [ ] Harden container runtime:
+  - non-root execution where possible;
+  - minimal runtime dependencies;
+  - production-safe settings (`read_only`, `tmpfs`, dropped capabilities where applicable).
+- [ ] Prepare production configuration:
+  - add production config sample (without `.env*` naming constraints in this environment);
+  - externalize domain, email, origins, retention, rate limits, timeouts, image tags.
+- [ ] Add production documentation:
+  - `docs/PRODUCTION_DEPLOYMENT.md` with prerequisites, first deploy, upgrade, rollback, TLS, retention/backup, troubleshooting;
+  - update `README.md` with production quick-start.
+- [ ] Validate production readiness:
+  - run backend tests and frontend production build;
+  - validate compose/caddy configs;
+  - include final deployment checklist.
