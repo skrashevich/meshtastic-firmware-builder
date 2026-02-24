@@ -291,11 +291,14 @@ button {
   min-height: 200px;
   max-height: 360px;
   overflow: auto;
+  overflow-wrap: break-word;
+  word-break: break-word;
   padding: 12px;
   font-family: "IBM Plex Mono", "Consolas", monospace;
   font-size: 0.82rem;
   line-height: 1.45;
   border: 1px solid #213849;
+  white-space: pre-wrap;
 }
 
 .artifacts-list {
