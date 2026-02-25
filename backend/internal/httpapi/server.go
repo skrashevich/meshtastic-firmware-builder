@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -95,7 +96,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) serveLocalRoutes(w http.ResponseWriter, r *http.Request, requestID string) {
 	if r.Method == http.MethodGet && r.URL.Path == "/api/healthz" {
-		s.writeSuccess(w, http.StatusOK, requestID, healthResponse{Status: "ok", CaptchaRequired: s.cfg.RequireCaptcha})
+		s.writeSuccess(w, http.StatusOK, requestID, s.buildHealthResponse(r))
 		return
 	}
 
@@ -125,6 +126,28 @@ func (s *Server) serveLocalRoutes(w http.ResponseWriter, r *http.Request, reques
 	}
 
 	s.writeError(w, http.StatusNotFound, requestID, "NOT_FOUND", "route not found", nil)
+}
+
+func (s *Server) buildHealthResponse(r *http.Request) healthResponse {
+	nodeBaseURL := s.localBackendBaseURL(r)
+	proxyBackendURLs := make([]string, 0, len(s.proxyBackends))
+	for backendBaseURL := range s.proxyBackends {
+		if backendBaseURL == "" {
+			continue
+		}
+		if nodeBaseURL != "" && backendBaseURL == nodeBaseURL {
+			continue
+		}
+		proxyBackendURLs = append(proxyBackendURLs, backendBaseURL)
+	}
+	sort.Strings(proxyBackendURLs)
+
+	return healthResponse{
+		Status:           "ok",
+		CaptchaRequired:  s.cfg.RequireCaptcha,
+		NodeBaseURL:      nodeBaseURL,
+		ProxyBackendURLs: proxyBackendURLs,
+	}
 }
 
 func (s *Server) localBackendBaseURL(r *http.Request) string {
@@ -812,8 +835,10 @@ type captchaResponse struct {
 }
 
 type healthResponse struct {
-	Status          string `json:"status"`
-	CaptchaRequired bool   `json:"captchaRequired"`
+	Status           string   `json:"status"`
+	CaptchaRequired  bool     `json:"captchaRequired"`
+	NodeBaseURL      string   `json:"nodeBaseUrl,omitempty"`
+	ProxyBackendURLs []string `json:"proxyBackendUrls,omitempty"`
 }
 
 type logsResponse struct {

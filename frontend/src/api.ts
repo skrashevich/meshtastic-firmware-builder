@@ -55,6 +55,8 @@ export interface CaptchaChallenge {
 export interface ServerHealth {
   status: string;
   captchaRequired: boolean;
+  nodeBaseUrl?: string;
+  proxyBackendUrls?: string[];
 }
 
 export interface LogsSnapshot {
@@ -77,7 +79,7 @@ export interface BackendNodeHealth {
 }
 
 const DEFAULT_API_BASE_URL = "http://localhost:8080";
-const API_BASE_URLS = resolveApiBaseUrls(import.meta.env.VITE_API_BASE_URLS, import.meta.env.VITE_API_BASE_URL);
+const INITIAL_API_BASE_URLS = resolveApiBaseUrls(import.meta.env.VITE_API_BASE_URLS, import.meta.env.VITE_API_BASE_URL);
 const BACKEND_HEALTH_CHECK_PATH = "/api/healthz";
 const BACKEND_HEALTH_CACHE_TTL_MS = 5000;
 const BACKEND_UNAVAILABLE_COOLDOWN_MS = 15000;
@@ -99,10 +101,11 @@ type BackendResolvedHandler = (route: BackendRouteInfo) => void;
 type BackendHealthListener = () => void;
 
 let nextApiBaseUrlIndex = 0;
-let currentGatewayBaseUrl = API_BASE_URLS[0];
+const backendPool = [...INITIAL_API_BASE_URLS];
+let currentGatewayBaseUrl = backendPool[0];
 
 const backendHealthStates = new Map<string, BackendHealthState>(
-  API_BASE_URLS.map((backendBaseUrl) => [
+  backendPool.map((backendBaseUrl) => [
     backendBaseUrl,
     {
       healthy: true,
@@ -155,6 +158,33 @@ export function routedApiUrl(path: string, backendBaseUrl?: string, gatewayBaseU
   return appendTargetBackendQuery(apiUrl(path, resolvedGatewayBaseUrl), targetBackendBaseUrl);
 }
 
+export function registerBackendPool(backendBaseUrls: string[]): void {
+  let hasChanges = false;
+
+  for (const backendBaseUrl of backendBaseUrls) {
+    const normalizedBackendBaseUrl = parseApiBaseUrl(backendBaseUrl ?? "");
+    if (!normalizedBackendBaseUrl) {
+      continue;
+    }
+
+    if (ensureBackendInPool(normalizedBackendBaseUrl)) {
+      hasChanges = true;
+    }
+    if (!backendHealthStates.has(normalizedBackendBaseUrl)) {
+      backendHealthStates.set(normalizedBackendBaseUrl, {
+        healthy: true,
+        checkedAtMs: 0,
+        unavailableUntilMs: 0,
+      });
+      hasChanges = true;
+    }
+  }
+
+  if (hasChanges) {
+    emitBackendHealthChanged();
+  }
+}
+
 export function subscribeBackendHealth(listener: BackendHealthListener): () => void {
   backendHealthListeners.add(listener);
   return () => {
@@ -168,8 +198,9 @@ export function getBackendNodeHealthSnapshot(
 ): BackendNodeHealth[] {
   const resolvedCurrentBackend = parseApiBaseUrl(currentBackendBaseUrl ?? "") ?? "";
   const resolvedCurrentGateway = parseApiBaseUrl(currentGatewayBaseUrl ?? "") ?? "";
+  const knownBackends = getBackendPoolSnapshot();
 
-  return API_BASE_URLS.map((baseUrl) => {
+  return knownBackends.map((baseUrl) => {
     const backendState = getBackendHealthState(baseUrl);
     return {
       baseUrl,
@@ -455,14 +486,32 @@ function buildGatewayAttemptOrder(): string[] {
 }
 
 function buildRoundRobinOrder(): string[] {
-  const startIndex = nextApiBaseUrlIndex % API_BASE_URLS.length;
-  nextApiBaseUrlIndex = (startIndex + 1) % API_BASE_URLS.length;
+  const knownBackends = getBackendPoolSnapshot();
+  const startIndex = nextApiBaseUrlIndex % knownBackends.length;
+  nextApiBaseUrlIndex = (startIndex + 1) % knownBackends.length;
 
   const ordered: string[] = [];
-  for (let offset = 0; offset < API_BASE_URLS.length; offset += 1) {
-    ordered.push(API_BASE_URLS[(startIndex + offset) % API_BASE_URLS.length]);
+  for (let offset = 0; offset < knownBackends.length; offset += 1) {
+    ordered.push(knownBackends[(startIndex + offset) % knownBackends.length]);
   }
   return ordered;
+}
+
+function getBackendPoolSnapshot(): string[] {
+  if (backendPool.length === 0) {
+    backendPool.push(DEFAULT_API_BASE_URL);
+  }
+
+  return [...backendPool];
+}
+
+function ensureBackendInPool(backendBaseUrl: string): boolean {
+  if (backendPool.includes(backendBaseUrl)) {
+    return false;
+  }
+
+  backendPool.push(backendBaseUrl);
+  return true;
 }
 
 async function isGatewayAvailable(gatewayBaseUrl: string): Promise<boolean> {
@@ -493,6 +542,8 @@ function isBackendInCooldown(backendBaseUrl: string): boolean {
 }
 
 function getBackendHealthState(backendBaseUrl: string): BackendHealthState {
+  ensureBackendInPool(backendBaseUrl);
+
   const existingState = backendHealthStates.get(backendBaseUrl);
   if (existingState) {
     return existingState;
@@ -619,14 +670,17 @@ async function parseApiPayload<T>(response: Response): Promise<{ data?: T; error
 }
 
 function resolveApiBaseUrl(backendBaseUrl?: string): string {
+  const knownBackends = getBackendPoolSnapshot();
   if (!backendBaseUrl) {
-    return API_BASE_URLS[0];
+    return knownBackends[0];
   }
 
   const parsedBaseUrl = parseApiBaseUrl(backendBaseUrl);
   if (!parsedBaseUrl) {
-    return API_BASE_URLS[0];
+    return knownBackends[0];
   }
+
+  ensureBackendInPool(parsedBaseUrl);
 
   return parsedBaseUrl;
 }

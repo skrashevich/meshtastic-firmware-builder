@@ -16,6 +16,7 @@ import {
   getArtifacts,
   getJob,
   getServerHealth,
+  registerBackendPool,
   routedApiUrl,
   subscribeBackendHealth,
 } from "./api";
@@ -138,6 +139,7 @@ export default function App() {
     const bootstrap = async () => {
       try {
         const health = await getServerHealth(storedSessionBackend || undefined, saveCaptchaBackendRoute);
+        syncBackendPoolFromHealth(health.nodeBaseUrl, health.proxyBackendUrls);
         if (cancelled) {
           return;
         }
@@ -243,6 +245,11 @@ export default function App() {
   function saveCaptchaAndJobBackendRoute(route: BackendRouteInfo) {
     saveCaptchaBackendRoute(route);
     saveJobBackendRoute(route);
+  }
+
+  function syncBackendPoolFromHealth(nodeBaseUrl?: string, proxyBackendUrls?: string[]) {
+    const candidates = [nodeBaseUrl ?? "", ...(proxyBackendUrls ?? [])];
+    registerBackendPool(candidates);
   }
 
   function clearCaptchaSessionToken() {
