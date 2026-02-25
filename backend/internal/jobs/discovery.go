@@ -11,7 +11,18 @@ import (
 	"strings"
 )
 
-var envSectionPattern = regexp.MustCompile(`^\[\s*env\s*:\s*([^\]]+?)\s*\]\s*(?:[;#].*)?$`)
+var (
+	envSectionPattern = regexp.MustCompile(`^\[\s*env\s*:\s*([^\]]+?)\s*\]\s*(?:[;#].*)?$`)
+	sectionPattern    = regexp.MustCompile(`^\[\s*([^\]]+?)\s*\]\s*(?:[;#].*)?$`)
+)
+
+const commonEnvSectionKey = "__common_env__"
+
+type DiscoveredDevice struct {
+	Name       string
+	BuildFlags []string
+	LibDeps    []string
+}
 
 type variantProject struct {
 	Name         string
@@ -19,9 +30,10 @@ type variantProject struct {
 	AbsolutePath string
 	EnvName      string
 	EnvNames     []string
+	EnvOptions   map[string]BuildOptions
 }
 
-func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, ref string) ([]string, error) {
+func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, ref string) ([]DiscoveredDevice, error) {
 	tempDir, err := os.MkdirTemp(discoveryRoot, "discover-*")
 	if err != nil {
 		return nil, fmt.Errorf("create discovery workspace: %w", err)
@@ -33,7 +45,7 @@ func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, 
 		return nil, err
 	}
 
-	devices, err := listVariantDirectories(repoPath)
+	devices, err := listVariantDevices(repoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -45,13 +57,26 @@ func discoverDevices(ctx context.Context, discoveryRoot string, repoURL string, 
 }
 
 func listVariantDirectories(repoPath string) ([]string, error) {
+	devices, err := listVariantDevices(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(devices))
+	for _, device := range devices {
+		names = append(names, device.Name)
+	}
+	return names, nil
+}
+
+func listVariantDevices(repoPath string) ([]DiscoveredDevice, error) {
 	variantsDir := filepath.Join(repoPath, "variants")
 	entries, err := collectVariantProjects(variantsDir)
 	if err != nil {
 		return nil, err
 	}
 
-	devices := make([]string, 0, len(entries)*2)
+	devices := make([]DiscoveredDevice, 0, len(entries)*2)
 	seen := make(map[string]struct{}, len(entries)*2)
 	for _, entry := range entries {
 		for _, envName := range entry.EnvNames {
@@ -66,11 +91,20 @@ func listVariantDirectories(repoPath string) ([]string, error) {
 				continue
 			}
 			seen[target] = struct{}{}
-			devices = append(devices, target)
+
+			options := entry.EnvOptions[target]
+			devices = append(devices, DiscoveredDevice{
+				Name:       target,
+				BuildFlags: append([]string(nil), options.BuildFlags...),
+				LibDeps:    append([]string(nil), options.LibDeps...),
+			})
 		}
 	}
 
-	sort.Strings(devices)
+	sort.Slice(devices, func(i int, j int) bool {
+		return devices[i].Name < devices[j].Name
+	})
+
 	return devices, nil
 }
 
@@ -196,7 +230,7 @@ func collectVariantProjects(variantsDir string) ([]variantProject, error) {
 			return nil
 		}
 
-		envNames, err := extractPlatformIOEnvNames(path)
+		envNames, envOptions, err := extractPlatformIOEnvConfig(path)
 		if err != nil {
 			return err
 		}
@@ -209,6 +243,7 @@ func collectVariantProjects(variantsDir string) ([]variantProject, error) {
 			RelativePath: relPath,
 			AbsolutePath: path,
 			EnvNames:     envNames,
+			EnvOptions:   envOptions,
 		})
 		return filepath.SkipDir
 	})
@@ -236,40 +271,170 @@ func hasPlatformIOIni(devicePath string) (bool, error) {
 }
 
 func extractPlatformIOEnvNames(devicePath string) ([]string, error) {
+	envNames, _, err := extractPlatformIOEnvConfig(devicePath)
+	if err != nil {
+		return nil, err
+	}
+	return envNames, nil
+}
+
+func extractPlatformIOEnvConfig(devicePath string) ([]string, map[string]BuildOptions, error) {
 	configPath := filepath.Join(devicePath, "platformio.ini")
 	content, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("read platformio.ini: %w", err)
+		return nil, nil, fmt.Errorf("read platformio.ini: %w", err)
 	}
 
 	envNames := make([]string, 0, 4)
 	seen := make(map[string]struct{}, 4)
+	allOptions := make(map[string]BuildOptions, 4)
+
+	currentEnv := ""
+	currentOption := ""
 	lines := strings.Split(string(content), "\n")
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			currentOption = ""
+			continue
+		}
+		if strings.HasPrefix(trimmed, ";") || strings.HasPrefix(trimmed, "#") {
 			continue
 		}
 
-		match := envSectionPattern.FindStringSubmatch(line)
-		if len(match) != 2 {
+		sectionMatch := sectionPattern.FindStringSubmatch(trimmed)
+		if len(sectionMatch) == 2 {
+			sectionName := strings.TrimSpace(sectionMatch[1])
+			currentOption = ""
+
+			if strings.EqualFold(sectionName, "env") {
+				currentEnv = commonEnvSectionKey
+				if _, exists := allOptions[currentEnv]; !exists {
+					allOptions[currentEnv] = BuildOptions{}
+				}
+				continue
+			}
+
+			envMatch := envSectionPattern.FindStringSubmatch(trimmed)
+			if len(envMatch) != 2 {
+				currentEnv = ""
+				continue
+			}
+
+			envName := strings.TrimSpace(envMatch[1])
+			if envName == "" {
+				currentEnv = ""
+				continue
+			}
+			if err := ValidateDevice(envName); err != nil {
+				currentEnv = ""
+				continue
+			}
+
+			currentEnv = envName
+			if _, exists := allOptions[currentEnv]; !exists {
+				allOptions[currentEnv] = BuildOptions{}
+			}
+			if _, exists := seen[envName]; !exists {
+				seen[envName] = struct{}{}
+				envNames = append(envNames, envName)
+			}
 			continue
 		}
 
-		envName := strings.TrimSpace(match[1])
-		if envName == "" {
-			continue
-		}
-		if err := ValidateDevice(envName); err != nil {
-			continue
-		}
-		if _, exists := seen[envName]; exists {
+		if currentEnv == "" {
+			currentOption = ""
 			continue
 		}
 
-		seen[envName] = struct{}{}
-		envNames = append(envNames, envName)
+		isContinuation := (strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")) && currentOption != ""
+		if isContinuation {
+			value := parseOptionValue(trimmed)
+			if value != "" {
+				appendBuildOptionValue(allOptions, currentEnv, currentOption, value)
+			}
+			continue
+		}
+
+		key, value, ok := splitIniOption(trimmed)
+		if !ok {
+			currentOption = ""
+			continue
+		}
+
+		normalizedKey := strings.ToLower(key)
+		switch normalizedKey {
+		case "build_flags", "lib_deps":
+			currentOption = normalizedKey
+			parsedValue := parseOptionValue(value)
+			if parsedValue != "" {
+				appendBuildOptionValue(allOptions, currentEnv, currentOption, parsedValue)
+			}
+		default:
+			currentOption = ""
+		}
 	}
 
-	return envNames, nil
+	resolvedOptions := make(map[string]BuildOptions, len(envNames))
+	commonOptions := allOptions[commonEnvSectionKey]
+	for _, envName := range envNames {
+		envOptions := allOptions[envName]
+		resolvedOptions[envName] = BuildOptions{
+			BuildFlags: append(append([]string(nil), commonOptions.BuildFlags...), envOptions.BuildFlags...),
+			LibDeps:    append(append([]string(nil), commonOptions.LibDeps...), envOptions.LibDeps...),
+		}
+	}
+
+	return envNames, resolvedOptions, nil
+}
+
+func splitIniOption(line string) (string, string, bool) {
+	index := strings.Index(line, "=")
+	if index < 0 {
+		return "", "", false
+	}
+
+	key := strings.TrimSpace(line[:index])
+	if key == "" {
+		return "", "", false
+	}
+
+	value := strings.TrimSpace(line[index+1:])
+	return key, value, true
+}
+
+func parseOptionValue(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+
+	for index := 0; index < len(trimmed); index++ {
+		char := trimmed[index]
+		if char != ';' && char != '#' {
+			continue
+		}
+		if index == 0 {
+			return ""
+		}
+		prev := trimmed[index-1]
+		if prev != ' ' && prev != '\t' {
+			continue
+		}
+
+		return strings.TrimSpace(trimmed[:index])
+	}
+
+	return trimmed
+}
+
+func appendBuildOptionValue(options map[string]BuildOptions, envName string, option string, value string) {
+	entry := options[envName]
+	switch option {
+	case "build_flags":
+		entry.BuildFlags = append(entry.BuildFlags, value)
+	case "lib_deps":
+		entry.LibDeps = append(entry.LibDeps, value)
+	}
+	options[envName] = entry
 }

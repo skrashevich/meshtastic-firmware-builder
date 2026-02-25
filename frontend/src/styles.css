@@ -356,6 +356,58 @@ a:focus {
   margin-top: 14px;
 }
 
+.build-current-box {
+  margin-top: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: #f8fcfa;
+  padding: 10px 12px;
+}
+
+.build-current-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.build-current-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.build-current-label {
+  margin: 0;
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.build-current-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.build-current-list li {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 6px 8px;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.build-current-empty {
+  margin: 6px 0 0;
+}
+
 .build-options-grid {
   margin-top: 8px;
   display: grid;
@@ -534,6 +586,10 @@ button {
   }
 
   .build-options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .build-current-grid {
     grid-template-columns: 1fr;
   }
 }

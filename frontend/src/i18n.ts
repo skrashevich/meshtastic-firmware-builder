@@ -30,6 +30,11 @@ type Dictionary = {
   libDepsLabel: string;
   libDepsPlaceholder: string;
   buildOptionsHint: string;
+  currentBuildOptionsTitle: string;
+  currentBuildFlagsLabel: string;
+  currentLibDepsLabel: string;
+  currentBuildOptionsEmpty: string;
+  currentBuildOptionsSelectDevice: string;
   startBuild: string;
   startingBuild: string;
   status: string;
@@ -89,6 +94,11 @@ export const dict: Record<Locale, Dictionary> = {
     libDepsLabel: "Дополнительные lib_deps",
     libDepsPlaceholder: "По одному значению в строке, например: bblanchon/ArduinoJson @ ^7",
     buildOptionsHint: "Опционально: значения добавляются к выбранному env из platformio.ini только для этой сборки",
+    currentBuildOptionsTitle: "Текущие значения из platformio.ini",
+    currentBuildFlagsLabel: "Текущие build_flags",
+    currentLibDepsLabel: "Текущие lib_deps",
+    currentBuildOptionsEmpty: "не заданы",
+    currentBuildOptionsSelectDevice: "Выберите устройство, чтобы увидеть значения",
     startBuild: "Запустить сборку",
     startingBuild: "Запуск...",
     status: "Статус",
@@ -154,6 +164,11 @@ export const dict: Record<Locale, Dictionary> = {
     libDepsLabel: "Additional lib_deps",
     libDepsPlaceholder: "One value per line, for example: bblanchon/ArduinoJson @ ^7",
     buildOptionsHint: "Optional: values are appended to the selected env from platformio.ini only for this build",
+    currentBuildOptionsTitle: "Current values from platformio.ini",
+    currentBuildFlagsLabel: "Current build_flags",
+    currentLibDepsLabel: "Current lib_deps",
+    currentBuildOptionsEmpty: "not set",
+    currentBuildOptionsSelectDevice: "Choose a device to see values",
     startBuild: "Start build",
     startingBuild: "Starting...",
     status: "Status",

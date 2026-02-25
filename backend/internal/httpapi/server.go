@@ -124,7 +124,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 		}
 	}
 
-	devices, err := s.manager.Discover(r.Context(), req.RepoURL, req.Ref)
+	discoveredDevices, err := s.manager.Discover(r.Context(), req.RepoURL, req.Ref)
 	if err != nil {
 		s.writeError(w, http.StatusUnprocessableEntity, requestID, "DISCOVERY_FAILED", err.Error(), nil)
 		return
@@ -133,7 +133,8 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 	data := discoverResponse{
 		RepoURL:             req.RepoURL,
 		Ref:                 req.Ref,
-		Devices:             devices,
+		Devices:             discoveredDeviceNames(discoveredDevices),
+		DeviceOptions:       discoveredDeviceOptions(discoveredDevices),
 		CaptchaSessionToken: captchaSessionToken,
 	}
 	s.writeSuccess(w, http.StatusOK, requestID, data)
@@ -461,6 +462,30 @@ func toRepoRefViews(refs []jobs.RepoRef) []repoRefView {
 	return views
 }
 
+func discoveredDeviceNames(devices []jobs.DiscoveredDevice) []string {
+	names := make([]string, 0, len(devices))
+	for _, device := range devices {
+		names = append(names, device.Name)
+	}
+	return names
+}
+
+func discoveredDeviceOptions(devices []jobs.DiscoveredDevice) map[string]discoverBuildOptions {
+	if len(devices) == 0 {
+		return nil
+	}
+
+	options := make(map[string]discoverBuildOptions, len(devices))
+	for _, device := range devices {
+		options[device.Name] = discoverBuildOptions{
+			BuildFlags: append([]string(nil), device.BuildFlags...),
+			LibDeps:    append([]string(nil), device.LibDeps...),
+		}
+	}
+
+	return options
+}
+
 func decodeJSON(r *http.Request, target any) error {
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
@@ -530,10 +555,16 @@ type repoRefsRequest struct {
 }
 
 type discoverResponse struct {
-	RepoURL             string   `json:"repoUrl"`
-	Ref                 string   `json:"ref,omitempty"`
-	Devices             []string `json:"devices"`
-	CaptchaSessionToken string   `json:"captchaSessionToken,omitempty"`
+	RepoURL             string                          `json:"repoUrl"`
+	Ref                 string                          `json:"ref,omitempty"`
+	Devices             []string                        `json:"devices"`
+	DeviceOptions       map[string]discoverBuildOptions `json:"deviceOptions,omitempty"`
+	CaptchaSessionToken string                          `json:"captchaSessionToken,omitempty"`
+}
+
+type discoverBuildOptions struct {
+	BuildFlags []string `json:"buildFlags,omitempty"`
+	LibDeps    []string `json:"libDeps,omitempty"`
 }
 
 type repoRefsResponse struct {

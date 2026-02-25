@@ -64,7 +64,7 @@ func (m *Manager) Close() {
 	m.wg.Wait()
 }
 
-func (m *Manager) Discover(ctx context.Context, repoURL string, ref string) ([]string, error) {
+func (m *Manager) Discover(ctx context.Context, repoURL string, ref string) ([]DiscoveredDevice, error) {
 	if err := ValidateRepoURL(repoURL); err != nil {
 		return nil, err
 	}

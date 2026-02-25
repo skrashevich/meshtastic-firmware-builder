@@ -31,7 +31,13 @@ export interface DiscoverResponse {
   repoUrl: string;
   ref?: string;
   devices: string[];
+  deviceOptions?: Record<string, DiscoverBuildOptions>;
   captchaSessionToken?: string;
+}
+
+export interface DiscoverBuildOptions {
+  buildFlags?: string[];
+  libDeps?: string[];
 }
 
 export interface RepoRefItem {

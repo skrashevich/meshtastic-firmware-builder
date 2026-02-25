@@ -242,3 +242,91 @@ framework = arduino
 		})
 	}
 }
+
+func TestExtractPlatformIOEnvConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	content := `[env]
+build_flags = -DGLOBAL=1
+  -Wall
+lib_deps = SPI
+
+[env:tbeam]
+build_flags = -DTBEAM=1
+lib_deps =
+  bblanchon/ArduinoJson @ ^7
+
+[env:heltec]
+lib_deps =
+  sandeepmistry/LoRa @ ^0.8.0
+`
+	if err := os.WriteFile(filepath.Join(root, "platformio.ini"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write platformio.ini: %v", err)
+	}
+
+	envNames, envOptions, err := extractPlatformIOEnvConfig(root)
+	if err != nil {
+		t.Fatalf("extractPlatformIOEnvConfig failed: %v", err)
+	}
+
+	if !reflect.DeepEqual(envNames, []string{"tbeam", "heltec"}) {
+		t.Fatalf("unexpected env names: %v", envNames)
+	}
+
+	tbeamOptions := envOptions["tbeam"]
+	if !reflect.DeepEqual(tbeamOptions.BuildFlags, []string{"-DGLOBAL=1", "-Wall", "-DTBEAM=1"}) {
+		t.Fatalf("unexpected tbeam build flags: %v", tbeamOptions.BuildFlags)
+	}
+	if !reflect.DeepEqual(tbeamOptions.LibDeps, []string{"SPI", "bblanchon/ArduinoJson @ ^7"}) {
+		t.Fatalf("unexpected tbeam lib deps: %v", tbeamOptions.LibDeps)
+	}
+
+	heltecOptions := envOptions["heltec"]
+	if !reflect.DeepEqual(heltecOptions.BuildFlags, []string{"-DGLOBAL=1", "-Wall"}) {
+		t.Fatalf("unexpected heltec build flags: %v", heltecOptions.BuildFlags)
+	}
+	if !reflect.DeepEqual(heltecOptions.LibDeps, []string{"SPI", "sandeepmistry/LoRa @ ^0.8.0"}) {
+		t.Fatalf("unexpected heltec lib deps: %v", heltecOptions.LibDeps)
+	}
+}
+
+func TestListVariantDevicesIncludesBuildOptions(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	devicePath := filepath.Join(root, "variants", "esp32", "tbeam")
+	if err := os.MkdirAll(devicePath, 0o755); err != nil {
+		t.Fatalf("create device dir: %v", err)
+	}
+
+	content := `[env]
+build_flags = -DGLOBAL=1
+
+[env:tbeam]
+build_flags = -DTBEAM=1
+lib_deps =
+  bblanchon/ArduinoJson @ ^7
+`
+	if err := os.WriteFile(filepath.Join(devicePath, "platformio.ini"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write platformio.ini: %v", err)
+	}
+
+	devices, err := listVariantDevices(root)
+	if err != nil {
+		t.Fatalf("listVariantDevices failed: %v", err)
+	}
+	if len(devices) != 1 {
+		t.Fatalf("unexpected devices count: got=%d want=1", len(devices))
+	}
+
+	if devices[0].Name != "tbeam" {
+		t.Fatalf("unexpected device name: %q", devices[0].Name)
+	}
+	if !reflect.DeepEqual(devices[0].BuildFlags, []string{"-DGLOBAL=1", "-DTBEAM=1"}) {
+		t.Fatalf("unexpected build flags: %v", devices[0].BuildFlags)
+	}
+	if !reflect.DeepEqual(devices[0].LibDeps, []string{"bblanchon/ArduinoJson @ ^7"}) {
+		t.Fatalf("unexpected lib deps: %v", devices[0].LibDeps)
+	}
+}

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   ArtifactItem,
   CaptchaChallenge,
+  DiscoverBuildOptions,
   JobState,
   JobStatus,
   RepoRefsResponse,
@@ -24,6 +25,9 @@ const defaultRepoURL = "https://github.com/skrashevich/meshtastic-firmware";
 export default function App() {
   const supportChatUrl = "https://t.me/meshtastic_firmware_builder";
   const supportChatRef = "t.me/meshtastic_firmware_builder";
+  const authorSignature = 'Sergei "svk" Krashevich <svk@svk.su>';
+  const authorGithubUrl = "https://github.com/skrashevich";
+  const authorGithubRef = "github.com/skrashevich";
   const projectRepoUrl = "https://github.com/skrashevich/meshtastic-firmware-builder";
   const projectRepoRef = "github.com/skrashevich/meshtastic-firmware-builder";
 
@@ -39,6 +43,7 @@ export default function App() {
   const [captchaSessionToken, setCaptchaSessionToken] = useState("");
   const [captchaRequired, setCaptchaRequired] = useState(true);
   const [devices, setDevices] = useState<string[]>([]);
+  const [deviceOptions, setDeviceOptions] = useState<Record<string, DiscoverBuildOptions>>({});
   const [selectedDevice, setSelectedDevice] = useState("");
   const [buildFlagsInput, setBuildFlagsInput] = useState("");
   const [libDepsInput, setLibDepsInput] = useState("");
@@ -259,6 +264,8 @@ export default function App() {
       if (result.captchaSessionToken) {
         saveCaptchaSessionToken(result.captchaSessionToken);
       }
+
+      setDeviceOptions(result.deviceOptions ?? {});
       setDevices(result.devices);
       setSelectedDevice(result.devices[0] ?? "");
       setJob(null);
@@ -386,6 +393,9 @@ export default function App() {
   const branchSuggestions = repoRefs ? limitRefItems(repoRefs.recentBranches, 8) : [];
   const tagSuggestions = repoRefs ? limitRefItems(repoRefs.recentTags, 8) : [];
   const refInputSuggestions = collectRefSuggestions(repoRefs);
+  const selectedDeviceOptions = selectedDevice ? deviceOptions[selectedDevice] : undefined;
+  const currentBuildFlags = selectedDeviceOptions?.buildFlags ?? [];
+  const currentLibDeps = selectedDeviceOptions?.libDeps ?? [];
 
   return (
     <div className="page-shell">
@@ -551,6 +561,39 @@ export default function App() {
             ))}
           </div>
 
+          <div className="build-current-box">
+            <p className="build-current-title">{t.currentBuildOptionsTitle}</p>
+            {!selectedDevice ? <p className="muted build-current-empty">{t.currentBuildOptionsSelectDevice}</p> : null}
+            {selectedDevice ? (
+              <div className="build-current-grid">
+                <div>
+                  <p className="build-current-label">{t.currentBuildFlagsLabel}</p>
+                  {currentBuildFlags.length === 0 ? (
+                    <p className="muted build-current-empty">{t.currentBuildOptionsEmpty}</p>
+                  ) : (
+                    <ul className="build-current-list">
+                      {currentBuildFlags.map((value, index) => (
+                        <li key={`current-flag-${index}`}>{value}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <p className="build-current-label">{t.currentLibDepsLabel}</p>
+                  {currentLibDeps.length === 0 ? (
+                    <p className="muted build-current-empty">{t.currentBuildOptionsEmpty}</p>
+                  ) : (
+                    <ul className="build-current-list">
+                      {currentLibDeps.map((value, index) => (
+                        <li key={`current-lib-${index}`}>{value}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <p className="muted build-options-hint">{t.buildOptionsHint}</p>
           <div className="build-options-grid">
             <label>
@@ -651,7 +694,13 @@ export default function App() {
 
         <footer className="site-footer">
           <span>
-            {t.footerAuthor}: Sergei "svk" Krashevich
+            {t.footerAuthor}: {authorSignature}
+          </span>
+          <span>
+            GitHub:{" "}
+            <a href={authorGithubUrl} target="_blank" rel="noreferrer">
+              {authorGithubRef}
+            </a>
           </span>
           <span>
             {t.footerRepository}: {" "}
