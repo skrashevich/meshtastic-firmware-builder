@@ -292,6 +292,30 @@ a:focus {
   white-space: nowrap;
 }
 
+.status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.backend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.backend-chip.proxied {
+  background: #e7f6ff;
+  border-color: #8fc6de;
+  color: #234a60;
+}
+
+.backend-route-note {
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
+
 .devices-grid {
   margin-top: 14px;
   display: grid;
@@ -501,6 +525,10 @@ button {
   .panel-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .status-chips {
+    justify-content: flex-start;
   }
 
   .status-chip {

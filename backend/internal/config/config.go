@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -21,6 +22,7 @@ const (
 	defaultMaxLogLines         = 20000
 	defaultBuildRateLimit      = 10
 	defaultRequireCaptcha      = true
+	defaultProxyTimeoutSeconds = 10
 )
 
 type Config struct {
@@ -41,6 +43,9 @@ type Config struct {
 	CleanupInterval   time.Duration
 	DiscoveryRootPath string
 	JobsRootPath      string
+	NodeBaseURL       string
+	ProxyBackendURLs  []string
+	ProxyTimeout      time.Duration
 }
 
 func Load() (Config, error) {
@@ -159,6 +164,26 @@ func Load() (Config, error) {
 		allowedOrigins = splitCSV(defaultAllowedOrigins)
 	}
 
+	nodeBaseURL, err := parseOptionalBaseURL("APP_NODE_BASE_URL")
+	if err != nil {
+		return Config{}, err
+	}
+
+	proxyBackendURLs, err := parseBaseURLListEnv("APP_PROXY_BACKEND_URLS")
+	if err != nil {
+		return Config{}, err
+	}
+
+	proxyTimeoutSeconds, err := intEnv("APP_PROXY_TIMEOUT_SECONDS", defaultProxyTimeoutSeconds)
+	if err != nil {
+		return Config{}, err
+	}
+	if proxyTimeoutSeconds < 1 {
+		return Config{}, fmt.Errorf("APP_PROXY_TIMEOUT_SECONDS must be >= 1")
+	}
+
+	proxyBackendURLs = uniqueStrings(proxyBackendURLs)
+
 	return Config{
 		Port:              port,
 		WorkDir:           workDir,
@@ -177,6 +202,9 @@ func Load() (Config, error) {
 		CleanupInterval:   time.Hour,
 		DiscoveryRootPath: discoveryRoot,
 		JobsRootPath:      jobsRoot,
+		NodeBaseURL:       nodeBaseURL,
+		ProxyBackendURLs:  proxyBackendURLs,
+		ProxyTimeout:      time.Duration(proxyTimeoutSeconds) * time.Second,
 	}, nil
 }
 
@@ -229,4 +257,83 @@ func ensureDir(path string) error {
 		return fmt.Errorf("create directory %s: %w", path, err)
 	}
 	return nil
+}
+
+func parseOptionalBaseURL(envName string) (string, error) {
+	rawValue := strings.TrimSpace(os.Getenv(envName))
+	if rawValue == "" {
+		return "", nil
+	}
+
+	normalizedValue, err := normalizeBaseURL(rawValue)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", envName, err)
+	}
+
+	return normalizedValue, nil
+}
+
+func parseBaseURLListEnv(envName string) ([]string, error) {
+	values := splitCSV(os.Getenv(envName))
+	if len(values) == 0 {
+		return nil, nil
+	}
+
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		normalizedValue, err := normalizeBaseURL(value)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", envName, err)
+		}
+		result = append(result, normalizedValue)
+	}
+
+	return result, nil
+}
+
+func normalizeBaseURL(rawValue string) (string, error) {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return "", fmt.Errorf("value must not be empty")
+	}
+
+	parsedValue, err := url.Parse(trimmedValue)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+
+	if parsedValue.Scheme != "http" && parsedValue.Scheme != "https" {
+		return "", fmt.Errorf("URL scheme must be http or https")
+	}
+	if parsedValue.Host == "" {
+		return "", fmt.Errorf("URL host is required")
+	}
+	if parsedValue.Path != "" && parsedValue.Path != "/" {
+		return "", fmt.Errorf("URL must not contain a path")
+	}
+	if parsedValue.RawQuery != "" || parsedValue.Fragment != "" {
+		return "", fmt.Errorf("URL must not contain query or fragment")
+	}
+
+	parsedValue.Path = ""
+	parsedValue.RawPath = ""
+	return strings.TrimSuffix(parsedValue.String(), "/"), nil
+}
+
+func uniqueStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+
+	return result
 }

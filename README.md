@@ -207,8 +207,13 @@ Important defaults:
 - `APP_PLATFORMIO_CACHE_DIR=./build-workdir/platformio-cache`
 - `APP_DOCKER_HOST_WORKDIR=/absolute/path/.../build-workdir` (required for Dockerized backend)
 - `APP_DOCKER_HOST_CACHE_DIR=/absolute/path/.../build-workdir/platformio-cache` (recommended)
+- `APP_NODE_BASE_URL=http://localhost:8080` (optional explicit URL of current backend node)
+- `APP_PROXY_BACKEND_URLS=` (optional allowed backend peers for server-side proxy routing)
+- `APP_PROXY_TIMEOUT_SECONDS=10` (timeout for backend-to-backend proxy requests)
 - `VITE_API_BASE_URL=http://localhost:8080` (frontend fallback API endpoint)
 - `VITE_API_BASE_URLS=` (optional frontend backend pool for round-robin + failover)
+
+When `VITE_API_BASE_URLS` is configured, frontend selects target backends in round-robin mode. Requests for non-current targets are sent through the current backend node, which proxies them to allowed peers from `APP_PROXY_BACKEND_URLS`.
 
 Build speed notes:
 - Backend runs builds with `PLATFORMIO_BUILD_CACHE_DIR=/root/.platformio/build-cache`.
