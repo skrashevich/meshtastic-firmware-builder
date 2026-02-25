@@ -8,7 +8,8 @@ RUN apt-get update \
 
 RUN pip install --no-cache-dir platformio \
     && pio pkg install --global --tool "${MKLITTLEFS_TOOL}" --silent \
-    && pio pkg list --global --tool "${MKLITTLEFS_TOOL}"
+    && pio pkg list --global --tool "${MKLITTLEFS_TOOL}" \
+    && install -m 0755 /root/.platformio/packages/tool-mklittlefs/mklittlefs /usr/local/bin/mklittlefs
 
 RUN set -eux; \
     for prefix in xtensa-esp32-elf xtensa-esp-elf riscv32-esp-elf xtensa-lx106-elf arm-none-eabi; do \

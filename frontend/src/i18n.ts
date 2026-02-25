@@ -18,6 +18,7 @@ type Dictionary = {
   captchaRefresh: string;
   captchaLoading: string;
   captchaRequired: string;
+  captchaSessionActive: string;
   discover: string;
   discovering: string;
   devicesTitle: string;
@@ -66,6 +67,7 @@ export const dict: Record<Locale, Dictionary> = {
     captchaRefresh: "Обновить капчу",
     captchaLoading: "Генерирую капчу...",
     captchaRequired: "Решите капчу перед запуском сборки",
+    captchaSessionActive: "Капча подтверждена для текущей сессии браузера",
     discover: "Найти устройства",
     discovering: "Поиск устройств...",
     devicesTitle: "Доступные устройства (каталог variants)",
@@ -120,6 +122,7 @@ export const dict: Record<Locale, Dictionary> = {
     captchaRefresh: "Refresh captcha",
     captchaLoading: "Generating captcha...",
     captchaRequired: "Solve captcha before starting build",
+    captchaSessionActive: "Captcha verified for this browser session",
     discover: "Discover devices",
     discovering: "Discovering devices...",
     devicesTitle: "Available devices (variants directory)",

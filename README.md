@@ -5,7 +5,7 @@ Web application for building Meshtastic firmware from non-official fork reposito
 User flow:
 1. User provides repository URL.
 2. Frontend loads default branch, recent branches, and recent tags (manual ref input still available).
-3. User solves captcha and selects device.
+3. User solves captcha to discover devices, then solves captcha again before build start.
 4. Backend clones repository and runs `pio run -e <target>` inside Docker container.
 5. Frontend shows live build logs and firmware download links.
 
@@ -164,7 +164,7 @@ In Docker Compose mode, frontend proxies `/api/*` to backend internally, so brow
 ## API
 
 - `POST /api/repos/discover`
-  - Body: `{ "repoUrl": "...", "ref": "main" }`
+  - Body: `{ "repoUrl": "...", "ref": "main", "captchaId": "...", "captchaAnswer": "..." }`
   - Returns build targets discovered from `[env:*]` sections in `variants/**/platformio.ini`
 - `POST /api/repos/refs`
   - Body: `{ "repoUrl": "..." }`
@@ -172,7 +172,8 @@ In Docker Compose mode, frontend proxies `/api/*` to backend internally, so brow
 - `GET /api/captcha`
   - Returns one-time captcha challenge (`captchaId`, `question`, `expiresAt`)
 - `POST /api/jobs`
-  - Body: `{ "repoUrl": "...", "ref": "main", "device": "tbeam", "captchaId": "...", "captchaAnswer": "..." }`
+  - Body (first build in browser session): `{ "repoUrl": "...", "ref": "main", "device": "tbeam", "captchaId": "...", "captchaAnswer": "..." }`
+  - Body (next builds in same browser session): `{ "repoUrl": "...", "ref": "main", "device": "tbeam", "captchaSessionToken": "..." }`
   - Creates build job
 - `GET /api/jobs/{jobId}`
   - Returns current status (`queued|running|success|failed|cancelled`)
@@ -212,7 +213,7 @@ Build speed notes:
 - Workspaces are isolated per job under `build-workdir/jobs/{jobId}`
 - Artifacts are served only from files registered for that job
 - Build creation endpoint has per-client in-memory rate limiting
-- Build creation endpoint requires one-time captcha validation
+- Build creation endpoint requires captcha once per browser session (`captchaSessionToken` for subsequent builds)
 
 ## Testing
 

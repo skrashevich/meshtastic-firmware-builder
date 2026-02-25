@@ -19,14 +19,15 @@ import (
 )
 
 type Server struct {
-	cfg            config.Config
-	manager        *jobs.Manager
-	logger         *log.Logger
-	allowedOrigins map[string]struct{}
-	rateMu         sync.Mutex
-	buildRequests  map[string][]time.Time
-	captchaMu      sync.Mutex
-	captchas       map[string]captchaChallenge
+	cfg             config.Config
+	manager         *jobs.Manager
+	logger          *log.Logger
+	allowedOrigins  map[string]struct{}
+	rateMu          sync.Mutex
+	buildRequests   map[string][]time.Time
+	captchaMu       sync.Mutex
+	captchas        map[string]captchaChallenge
+	captchaSessions map[string]captchaSession
 }
 
 func NewServer(cfg config.Config, manager *jobs.Manager, logger *log.Logger) *Server {
@@ -36,12 +37,13 @@ func NewServer(cfg config.Config, manager *jobs.Manager, logger *log.Logger) *Se
 	}
 
 	return &Server{
-		cfg:            cfg,
-		manager:        manager,
-		logger:         logger,
-		allowedOrigins: allowed,
-		buildRequests:  make(map[string][]time.Time),
-		captchas:       make(map[string]captchaChallenge),
+		cfg:             cfg,
+		manager:         manager,
+		logger:          logger,
+		allowedOrigins:  allowed,
+		buildRequests:   make(map[string][]time.Time),
+		captchas:        make(map[string]captchaChallenge),
+		captchaSessions: make(map[string]captchaSession),
 	}
 }
 
@@ -98,6 +100,11 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 		return
 	}
 
+	if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
+		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
+		return
+	}
+
 	devices, err := s.manager.Discover(r.Context(), req.RepoURL, req.Ref)
 	if err != nil {
 		s.writeError(w, http.StatusUnprocessableEntity, requestID, "DISCOVERY_FAILED", err.Error(), nil)
@@ -141,9 +148,25 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 		return
 	}
 
-	if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
-		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
-		return
+	captchaSessionToken := strings.TrimSpace(req.CaptchaSessionToken)
+	if captchaSessionToken != "" {
+		if err := s.validateCaptchaSession(r.RemoteAddr, captchaSessionToken); err != nil {
+			captchaSessionToken = ""
+		}
+	}
+
+	if captchaSessionToken == "" {
+		if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
+			s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
+			return
+		}
+
+		issuedSessionToken, err := s.createCaptchaSession(r.RemoteAddr)
+		if err != nil {
+			s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_SESSION_FAILED", err.Error(), nil)
+			return
+		}
+		captchaSessionToken = issuedSessionToken
 	}
 
 	if !s.allowBuildRequest(r.RemoteAddr) {
@@ -157,7 +180,9 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 		return
 	}
 
-	s.writeSuccess(w, http.StatusCreated, requestID, s.presentState(state))
+	response := s.presentState(state)
+	response.CaptchaSessionToken = captchaSessionToken
+	s.writeSuccess(w, http.StatusCreated, requestID, response)
 }
 
 func (s *Server) handleNewCaptcha(w http.ResponseWriter, r *http.Request, requestID string) {
@@ -459,8 +484,10 @@ func (s *Server) allowBuildRequest(remoteAddr string) bool {
 }
 
 type discoverRequest struct {
-	RepoURL string `json:"repoUrl"`
-	Ref     string `json:"ref"`
+	RepoURL       string `json:"repoUrl"`
+	Ref           string `json:"ref"`
+	CaptchaID     string `json:"captchaId"`
+	CaptchaAnswer string `json:"captchaAnswer"`
 }
 
 type repoRefsRequest struct {
@@ -481,11 +508,12 @@ type repoRefsResponse struct {
 }
 
 type createJobRequest struct {
-	RepoURL       string `json:"repoUrl"`
-	Ref           string `json:"ref"`
-	Device        string `json:"device"`
-	CaptchaID     string `json:"captchaId"`
-	CaptchaAnswer string `json:"captchaAnswer"`
+	RepoURL             string `json:"repoUrl"`
+	Ref                 string `json:"ref"`
+	Device              string `json:"device"`
+	CaptchaID           string `json:"captchaId,omitempty"`
+	CaptchaAnswer       string `json:"captchaAnswer,omitempty"`
+	CaptchaSessionToken string `json:"captchaSessionToken,omitempty"`
 }
 
 type captchaResponse struct {
@@ -499,19 +527,20 @@ type logsResponse struct {
 }
 
 type stateResponse struct {
-	ID              string         `json:"id"`
-	RepoURL         string         `json:"repoUrl"`
-	Ref             string         `json:"ref,omitempty"`
-	Device          string         `json:"device"`
-	Status          jobs.Status    `json:"status"`
-	QueuePosition   *int           `json:"queuePosition,omitempty"`
-	QueueETASeconds *int           `json:"queueEtaSeconds,omitempty"`
-	CreatedAt       time.Time      `json:"createdAt"`
-	StartedAt       *time.Time     `json:"startedAt,omitempty"`
-	FinishedAt      *time.Time     `json:"finishedAt,omitempty"`
-	Error           string         `json:"error,omitempty"`
-	LogLines        int            `json:"logLines"`
-	Artifacts       []artifactView `json:"artifacts"`
+	ID                  string         `json:"id"`
+	RepoURL             string         `json:"repoUrl"`
+	Ref                 string         `json:"ref,omitempty"`
+	Device              string         `json:"device"`
+	Status              jobs.Status    `json:"status"`
+	CaptchaSessionToken string         `json:"captchaSessionToken,omitempty"`
+	QueuePosition       *int           `json:"queuePosition,omitempty"`
+	QueueETASeconds     *int           `json:"queueEtaSeconds,omitempty"`
+	CreatedAt           time.Time      `json:"createdAt"`
+	StartedAt           *time.Time     `json:"startedAt,omitempty"`
+	FinishedAt          *time.Time     `json:"finishedAt,omitempty"`
+	Error               string         `json:"error,omitempty"`
+	LogLines            int            `json:"logLines"`
+	Artifacts           []artifactView `json:"artifacts"`
 }
 
 type artifactsResponse struct {

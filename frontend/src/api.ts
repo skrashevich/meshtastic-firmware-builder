@@ -14,6 +14,7 @@ export interface JobState {
   ref?: string;
   device: string;
   status: JobStatus;
+  captchaSessionToken?: string;
   queuePosition?: number;
   queueEtaSeconds?: number;
   createdAt: string;
@@ -59,10 +60,15 @@ export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
 }
 
-export async function discoverDevices(repoUrl: string, ref: string): Promise<DiscoverResponse> {
+export async function discoverDevices(
+  repoUrl: string,
+  ref: string,
+  captchaId: string,
+  captchaAnswer: string,
+): Promise<DiscoverResponse> {
   return request<DiscoverResponse>("/api/repos/discover", {
     method: "POST",
-    body: JSON.stringify({ repoUrl, ref }),
+    body: JSON.stringify({ repoUrl, ref, captchaId, captchaAnswer }),
   });
 }
 
@@ -78,12 +84,24 @@ export async function createBuildJob(
   repoUrl: string,
   ref: string,
   device: string,
-  captchaId: string,
-  captchaAnswer: string,
+  captchaId?: string,
+  captchaAnswer?: string,
+  captchaSessionToken?: string,
 ): Promise<JobState> {
+  const payload: Record<string, string> = { repoUrl, ref, device };
+  if (captchaId) {
+    payload.captchaId = captchaId;
+  }
+  if (captchaAnswer) {
+    payload.captchaAnswer = captchaAnswer;
+  }
+  if (captchaSessionToken) {
+    payload.captchaSessionToken = captchaSessionToken;
+  }
+
   return request<JobState>("/api/jobs", {
     method: "POST",
-    body: JSON.stringify({ repoUrl, ref, device, captchaId, captchaAnswer }),
+    body: JSON.stringify(payload),
   });
 }
 
