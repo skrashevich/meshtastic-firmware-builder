@@ -38,6 +38,8 @@ type Dictionary = {
   supportIntro: string;
   supportDisclaimer: string;
   supportTone: string;
+  footerAuthor: string;
+  footerRepository: string;
   autoScrollOn: string;
   autoScrollOff: string;
   clearLogs: string;
@@ -91,6 +93,8 @@ export const dict: Record<Locale, Dictionary> = {
     supportDisclaimer:
       "Важно: проект не связан с Meshtastic, не является коммерческим и поддерживается на добровольных и безвозмездных началах.",
     supportTone: "Мы приветствуем вопросы и просьбы, но не требования.",
+    footerAuthor: "Автор",
+    footerRepository: "Репозиторий",
     autoScrollOn: "Автопрокрутка: вкл",
     autoScrollOff: "Автопрокрутка: выкл",
     clearLogs: "Очистить логи",
@@ -148,6 +152,8 @@ export const dict: Record<Locale, Dictionary> = {
     supportDisclaimer:
       "Important: this project is not affiliated with Meshtastic, is non-commercial, and is maintained voluntarily without compensation.",
     supportTone: "Questions and requests are welcome; demands are not.",
+    footerAuthor: "Author",
+    footerRepository: "Repository",
     autoScrollOn: "Autoscroll: on",
     autoScrollOff: "Autoscroll: off",
     clearLogs: "Clear logs",

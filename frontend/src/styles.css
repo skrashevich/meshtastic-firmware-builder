@@ -443,6 +443,28 @@ button {
   font-weight: 600;
 }
 
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--ink-muted);
+  padding: 10px 12px;
+  font-size: 0.85rem;
+}
+
+.site-footer a {
+  color: #0a6f64;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.site-footer a:hover {
+  text-decoration: underline;
+}
+
 .reveal-1,
 .reveal-2,
 .reveal-3,
@@ -483,5 +505,10 @@ button {
 
   .status-chip {
     white-space: normal;
+  }
+
+  .site-footer {
+    flex-direction: column;
+    gap: 6px;
   }
 }

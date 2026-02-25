@@ -23,6 +23,8 @@ const defaultRepoURL = "https://github.com/skrashevich/meshtastic-firmware";
 export default function App() {
   const supportChatUrl = "https://t.me/meshtastic_firmware_builder";
   const supportChatRef = "t.me/meshtastic_firmware_builder";
+  const projectRepoUrl = "https://github.com/skrashevich/meshtastic-firmware-builder";
+  const projectRepoRef = "github.com/skrashevich/meshtastic-firmware-builder";
 
   const [locale, setLocale] = useState<Locale>("ru");
   const [repoUrl, setRepoUrl] = useState(defaultRepoURL);
@@ -527,6 +529,18 @@ export default function App() {
         </section>
 
         {error ? <section className="error-banner">{error}</section> : null}
+
+        <footer className="site-footer">
+          <span>
+            {t.footerAuthor}: Sergei "svk" Krashevich
+          </span>
+          <span>
+            {t.footerRepository}: {" "}
+            <a href={projectRepoUrl} target="_blank" rel="noreferrer">
+              {projectRepoRef}
+            </a>
+          </span>
+        </footer>
       </main>
     </div>
   );
