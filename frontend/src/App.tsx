@@ -1,24 +1,31 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
+  BackendNodeHealth,
   ArtifactItem,
+  BackendRouteInfo,
   CaptchaChallenge,
   JobState,
   JobStatus,
   RepoRefsResponse,
-  apiUrl,
   createBuildJob,
   createLogStream,
   discoverDevices,
   discoverRepoRefs,
+  getBackendNodeHealthSnapshot,
   getCaptchaChallenge,
   getArtifacts,
   getJob,
   getServerHealth,
+  refreshBackendLoadSnapshot,
+  registerBackendPool,
+  routedApiUrl,
+  subscribeBackendHealth,
 } from "./api";
 import { Locale, dict } from "./i18n";
 
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 const captchaSessionStorageKey = "mfb.captchaSessionToken";
+const captchaBackendStorageKey = "mfb.captchaBackendBaseUrl";
 const defaultRepoURL = "https://github.com/skrashevich/meshtastic-firmware";
 
 export default function App() {
@@ -37,6 +44,7 @@ export default function App() {
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaLoading, setCaptchaLoading] = useState(false);
   const [captchaSessionToken, setCaptchaSessionToken] = useState("");
+  const [captchaBackendBaseUrl, setCaptchaBackendBaseUrl] = useState("");
   const [captchaRequired, setCaptchaRequired] = useState(true);
   const [devices, setDevices] = useState<string[]>([]);
   const [selectedDevice, setSelectedDevice] = useState("");
@@ -45,6 +53,9 @@ export default function App() {
   const [startingBuild, setStartingBuild] = useState(false);
 
   const [job, setJob] = useState<JobState | null>(null);
+  const [jobBackendBaseUrl, setJobBackendBaseUrl] = useState("");
+  const [gatewayBackendBaseUrl, setGatewayBackendBaseUrl] = useState("");
+  const [backendHealthNodes, setBackendHealthNodes] = useState<BackendNodeHealth[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -87,7 +98,7 @@ export default function App() {
       setRefsLoading(true);
       setRefsError("");
       try {
-        const refsData = await discoverRepoRefs(trimmedRepo, controller.signal);
+        const refsData = await discoverRepoRefs(trimmedRepo, controller.signal, undefined, saveCaptchaBackendRoute);
         setRepoRefs(refsData);
 
         const repoChanged = refsRepoRef.current !== trimmedRepo;
@@ -117,13 +128,20 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     const storedSessionToken = (window.sessionStorage.getItem(captchaSessionStorageKey) ?? "").trim();
+    const storedSessionBackend = (window.sessionStorage.getItem(captchaBackendStorageKey) ?? "").trim();
     if (storedSessionToken) {
       setCaptchaSessionToken(storedSessionToken);
+    }
+    if (storedSessionBackend) {
+      setCaptchaBackendBaseUrl(storedSessionBackend);
+      setGatewayBackendBaseUrl(storedSessionBackend);
     }
 
     const bootstrap = async () => {
       try {
-        const health = await getServerHealth();
+        const health = await getServerHealth(storedSessionBackend || undefined, saveCaptchaBackendRoute);
+        syncBackendPoolFromHealth(health.nodeBaseUrl, health.proxyBackendUrls);
+        await refreshBackendLoadSnapshot(storedSessionBackend || undefined);
         if (cancelled) {
           return;
         }
@@ -139,7 +157,7 @@ export default function App() {
         }
 
         if (!storedSessionToken) {
-          await refreshCaptcha();
+          await refreshCaptcha(storedSessionBackend || undefined);
         }
       } catch {
         if (cancelled) {
@@ -148,7 +166,7 @@ export default function App() {
 
         setCaptchaRequired(true);
         if (!storedSessionToken) {
-          await refreshCaptcha();
+          await refreshCaptcha(storedSessionBackend || undefined);
         }
       }
     };
@@ -160,28 +178,101 @@ export default function App() {
     };
   }, []);
 
-  function saveCaptchaSessionToken(token: string) {
+  useEffect(() => {
+    const updateHealthNodes = () => {
+      const currentBackendBaseUrl = (jobBackendBaseUrl || captchaBackendBaseUrl || "").trim();
+      const currentGatewayBaseUrl = (gatewayBackendBaseUrl || currentBackendBaseUrl || "").trim();
+
+      setBackendHealthNodes(
+        getBackendNodeHealthSnapshot(currentBackendBaseUrl || undefined, currentGatewayBaseUrl || undefined),
+      );
+    };
+
+    updateHealthNodes();
+    return subscribeBackendHealth(updateHealthNodes);
+  }, [jobBackendBaseUrl, captchaBackendBaseUrl, gatewayBackendBaseUrl]);
+
+  function saveCaptchaSessionToken(token: string, backendBaseUrl?: string) {
     const value = token.trim();
     if (!value) {
       return;
     }
+
+    if (backendBaseUrl) {
+      saveCaptchaBackendBaseUrl(backendBaseUrl);
+    }
+
     setCaptchaSessionToken(value);
     window.sessionStorage.setItem(captchaSessionStorageKey, value);
+  }
+
+  function saveCaptchaBackendBaseUrl(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return;
+    }
+
+    setCaptchaBackendBaseUrl(normalized);
+    window.sessionStorage.setItem(captchaBackendStorageKey, normalized);
+  }
+
+  function saveGatewayBackendBaseUrl(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return;
+    }
+
+    setGatewayBackendBaseUrl((current) => (current === normalized ? current : normalized));
+  }
+
+  function saveJobBackendBaseUrl(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return;
+    }
+
+    setJobBackendBaseUrl((current) => (current === normalized ? current : normalized));
+  }
+
+  function saveCaptchaBackendRoute(route: BackendRouteInfo) {
+    saveGatewayBackendBaseUrl(route.gatewayBaseUrl);
+    saveCaptchaBackendBaseUrl(route.backendBaseUrl);
+  }
+
+  function saveJobBackendRoute(route: BackendRouteInfo) {
+    saveGatewayBackendBaseUrl(route.gatewayBaseUrl);
+    saveJobBackendBaseUrl(route.backendBaseUrl);
+  }
+
+  function saveCaptchaAndJobBackendRoute(route: BackendRouteInfo) {
+    saveCaptchaBackendRoute(route);
+    saveJobBackendRoute(route);
+  }
+
+  function syncBackendPoolFromHealth(nodeBaseUrl?: string, proxyBackendUrls?: string[]) {
+    const candidates = [nodeBaseUrl ?? "", ...(proxyBackendUrls ?? [])];
+    registerBackendPool(candidates);
   }
 
   function clearCaptchaSessionToken() {
     setCaptchaSessionToken("");
     window.sessionStorage.removeItem(captchaSessionStorageKey);
+    setCaptchaBackendBaseUrl("");
+    setGatewayBackendBaseUrl("");
+    window.sessionStorage.removeItem(captchaBackendStorageKey);
   }
 
-  async function refreshCaptcha() {
+  async function refreshCaptcha(preferredBackendBaseUrl?: string) {
     if (!captchaRequired) {
       return;
     }
 
     setCaptchaLoading(true);
     try {
-      const challenge = await getCaptchaChallenge();
+      const challenge = await getCaptchaChallenge(
+        preferredBackendBaseUrl || captchaBackendBaseUrl || undefined,
+        saveCaptchaBackendRoute,
+      );
 
       if (challenge.captchaRequired === false) {
         setCaptchaRequired(false);
@@ -212,10 +303,16 @@ export default function App() {
 
     const intervalId = window.setInterval(async () => {
       try {
-        const current = await getJob(job.id);
+        let currentBackendBaseUrl = jobBackendBaseUrl;
+        const rememberBackendRoute = (route: BackendRouteInfo) => {
+          currentBackendBaseUrl = route.backendBaseUrl;
+          saveJobBackendRoute(route);
+        };
+
+        const current = await getJob(job.id, currentBackendBaseUrl || undefined, rememberBackendRoute);
         setJob(current);
         if (current.status === "success") {
-          const files = await getArtifacts(current.id);
+          const files = await getArtifacts(current.id, currentBackendBaseUrl || undefined, rememberBackendRoute);
           setArtifacts(files);
         }
         if (finalStatuses.has(current.status)) {
@@ -231,7 +328,7 @@ export default function App() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [job?.id]);
+  }, [job?.id, jobBackendBaseUrl, t.unknownError]);
 
   async function onDiscoverSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -250,16 +347,40 @@ export default function App() {
 
     setDiscovering(true);
     try {
+      const preferredBackend = captchaBackendBaseUrl || undefined;
+      let resolvedBackendBaseUrl = preferredBackend ?? "";
+      const rememberCaptchaBackend = (route: BackendRouteInfo) => {
+        resolvedBackendBaseUrl = route.backendBaseUrl;
+        saveCaptchaBackendRoute(route);
+      };
+
       const result = hasCaptchaSession
-        ? await discoverDevices(repoUrl.trim(), ref.trim(), undefined, undefined, captchaSessionToken)
-        : await discoverDevices(repoUrl.trim(), ref.trim(), captcha?.captchaId, captchaAnswer.trim());
+        ? await discoverDevices(
+            repoUrl.trim(),
+            ref.trim(),
+            undefined,
+            undefined,
+            captchaSessionToken,
+            preferredBackend,
+            rememberCaptchaBackend,
+          )
+        : await discoverDevices(
+            repoUrl.trim(),
+            ref.trim(),
+            captcha?.captchaId,
+            captchaAnswer.trim(),
+            undefined,
+            preferredBackend,
+            rememberCaptchaBackend,
+          );
 
       if (result.captchaSessionToken) {
-        saveCaptchaSessionToken(result.captchaSessionToken);
+        saveCaptchaSessionToken(result.captchaSessionToken, resolvedBackendBaseUrl);
       }
       setDevices(result.devices);
       setSelectedDevice(result.devices[0] ?? "");
       setJob(null);
+      setJobBackendBaseUrl("");
       setArtifacts([]);
       setLogs([]);
       closeStream();
@@ -272,7 +393,7 @@ export default function App() {
       }
 
       if (captchaRequired && (!hasCaptchaSession || message.toLowerCase().includes("captcha"))) {
-        void refreshCaptcha();
+        void refreshCaptcha(captchaBackendBaseUrl || undefined);
       }
     } finally {
       setDiscovering(false);
@@ -294,18 +415,46 @@ export default function App() {
 
     setStartingBuild(true);
     try {
+      const requiresCaptchaAffinity = captchaRequired && captchaBackendBaseUrl.trim() !== "";
+      const preferredBackend = requiresCaptchaAffinity ? captchaBackendBaseUrl : undefined;
+      await refreshBackendLoadSnapshot(preferredBackend);
+
+      let resolvedBackendBaseUrl = preferredBackend ?? "";
+      const rememberBuildBackend = (route: BackendRouteInfo) => {
+        resolvedBackendBaseUrl = route.backendBaseUrl;
+        saveCaptchaAndJobBackendRoute(route);
+      };
+
       const created = hasCaptchaSession
-        ? await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice, undefined, undefined, captchaSessionToken)
-        : await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice, captcha?.captchaId, captchaAnswer.trim());
+        ? await createBuildJob(
+            repoUrl.trim(),
+            ref.trim(),
+            selectedDevice,
+            undefined,
+            undefined,
+            captchaSessionToken,
+            preferredBackend,
+            rememberBuildBackend,
+          )
+        : await createBuildJob(
+            repoUrl.trim(),
+            ref.trim(),
+            selectedDevice,
+            captcha?.captchaId,
+            captchaAnswer.trim(),
+            undefined,
+            preferredBackend,
+            rememberBuildBackend,
+          );
 
       if (created.captchaSessionToken) {
-        saveCaptchaSessionToken(created.captchaSessionToken);
+        saveCaptchaSessionToken(created.captchaSessionToken, resolvedBackendBaseUrl);
       }
 
       setJob(created);
       setArtifacts([]);
       setLogs([]);
-      openStream(created.id);
+      openStream(created.id, resolvedBackendBaseUrl || preferredBackend);
     } catch (requestError) {
       const message = errorToMessage(requestError, t.unknownError);
       setError(message);
@@ -319,10 +468,10 @@ export default function App() {
     }
   }
 
-  function openStream(jobId: string) {
+  function openStream(jobId: string, backendBaseUrl?: string) {
     closeStream();
 
-    const stream = createLogStream(jobId);
+    const stream = createLogStream(jobId, backendBaseUrl, saveJobBackendRoute);
     stream.addEventListener("log", (event) => {
       const message = event as MessageEvent<string>;
       setLogs((current) => [...current, message.data]);
@@ -345,6 +494,21 @@ export default function App() {
   }
 
   const statusLabel = job ? t.statuses[job.status] ?? job.status : "-";
+  const activeBackendBaseUrl = (jobBackendBaseUrl || captchaBackendBaseUrl || "").trim();
+  const activeGatewayBaseUrl = (gatewayBackendBaseUrl || activeBackendBaseUrl || "").trim();
+  const backendLabel = activeBackendBaseUrl ? formatBackendEndpoint(activeBackendBaseUrl) : t.backendUnknown;
+  const gatewayLabel = activeGatewayBaseUrl ? formatBackendEndpoint(activeGatewayBaseUrl) : t.backendUnknown;
+  const backendIsProxied =
+    activeBackendBaseUrl !== "" &&
+    activeGatewayBaseUrl !== "" &&
+    !isSameEndpointNode(activeBackendBaseUrl, activeGatewayBaseUrl);
+  const backendRouteLabel =
+    activeBackendBaseUrl === ""
+      ? ""
+      : backendIsProxied
+        ? t.backendVia.replace("{gateway}", gatewayLabel)
+        : t.backendDirect;
+  const hasBackendHealthNodes = backendHealthNodes.length > 0;
   const queueNote =
     job?.status === "queued"
       ? typeof job.queuePosition === "number" && job.queuePosition > 0
@@ -508,9 +672,34 @@ export default function App() {
         <section className="panel reveal-2">
           <div className="panel-head">
             <h2>{t.devicesTitle}</h2>
-            <span className="status-chip">
-              {t.status}: <strong>{statusLabel}</strong>
-            </span>
+            <div className="status-chips">
+              <span className="status-chip">
+                {t.status}: <strong>{statusLabel}</strong>
+              </span>
+              <span className={backendIsProxied ? "status-chip backend-chip proxied" : "status-chip backend-chip"}>
+                {t.backendNode}: <strong>{backendLabel}</strong>
+                {backendRouteLabel ? <span className="backend-route-note">{backendRouteLabel}</span> : null}
+                {hasBackendHealthNodes ? (
+                  <span className="backend-health-list">
+                    {backendHealthNodes.map((node) => {
+                      const endpointLabel = formatBackendEndpoint(node.baseUrl);
+                      const statusLabel = node.status === "alive" ? t.backendAlive : t.backendDegraded;
+                      const nodeClasses = ["backend-health-node", node.status, node.isCurrentBackend ? "current" : ""]
+                        .filter(Boolean)
+                        .join(" ");
+
+                      return (
+                        <span key={node.baseUrl} className={nodeClasses} title={`${endpointLabel} - ${statusLabel}`}>
+                          <span className="backend-health-dot" />
+                          <span className="backend-health-label">{endpointLabel}</span>
+                          <span className="backend-health-state">{statusLabel}</span>
+                        </span>
+                      );
+                    })}
+                  </span>
+                ) : null}
+              </span>
+            </div>
           </div>
 
           <div className="devices-grid">
@@ -578,7 +767,15 @@ export default function App() {
             <ul className="artifacts-list">
               {artifacts.map((artifact) => (
                 <li key={artifact.id}>
-                  <a href={apiUrl(artifact.downloadUrl)} target="_blank" rel="noreferrer">
+                  <a
+                    href={routedApiUrl(
+                      artifact.downloadUrl,
+                      jobBackendBaseUrl || undefined,
+                      gatewayBackendBaseUrl || undefined,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {artifact.relativePath}
                   </a>
                   <span>{formatSize(artifact.size)}</span>
@@ -660,6 +857,46 @@ function formatQueueETA(seconds: number, locale: Locale): string {
     return `${hours}h`;
   }
   return `${totalMinutes}m`;
+}
+
+function formatBackendEndpoint(value: string): string {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return "-";
+  }
+
+  try {
+    const parsedValue = new URL(trimmedValue);
+    return parsedValue.host;
+  } catch {
+    return trimmedValue;
+  }
+}
+
+function isSameEndpointNode(leftValue: string, rightValue: string): boolean {
+  const leftNodeID = endpointNodeID(leftValue);
+  const rightNodeID = endpointNodeID(rightValue);
+  return leftNodeID !== null && rightNodeID !== null && leftNodeID === rightNodeID;
+}
+
+function endpointNodeID(value: string): string | null {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmedValue);
+    const host = parsed.hostname.toLowerCase();
+    const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+    if (!host) {
+      return null;
+    }
+
+    return `${host}:${port}`;
+  } catch {
+    return null;
+  }
 }
 
 function collectRefSuggestions(repoRefs: RepoRefsResponse | null): string[] {

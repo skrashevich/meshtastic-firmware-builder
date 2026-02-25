@@ -292,6 +292,77 @@ a:focus {
   white-space: nowrap;
 }
 
+.status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.backend-chip {
+  display: inline-flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  white-space: normal;
+  max-width: min(540px, 92vw);
+}
+
+.backend-chip.proxied {
+  background: #e7f6ff;
+  border-color: #8fc6de;
+  color: #234a60;
+}
+
+.backend-route-note {
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
+
+.backend-health-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.backend-health-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(9, 80, 66, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.64);
+  padding: 2px 8px;
+  font-size: 0.74rem;
+  color: #1d4541;
+}
+
+.backend-health-node.current {
+  border-color: rgba(15, 143, 127, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(15, 143, 127, 0.2);
+}
+
+.backend-health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #43b16c;
+  box-shadow: 0 0 0 2px rgba(67, 177, 108, 0.16);
+}
+
+.backend-health-node.degraded .backend-health-dot {
+  background: #d3684d;
+  box-shadow: 0 0 0 2px rgba(211, 104, 77, 0.16);
+}
+
+.backend-health-label {
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+}
+
+.backend-health-state {
+  color: var(--ink-muted);
+}
+
 .devices-grid {
   margin-top: 14px;
   display: grid;
@@ -501,6 +572,10 @@ button {
   .panel-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .status-chips {
+    justify-content: flex-start;
   }
 
   .status-chip {
