@@ -19,6 +19,7 @@ import { Locale, dict } from "./i18n";
 
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 const captchaSessionStorageKey = "mfb.captchaSessionToken";
+const captchaBackendStorageKey = "mfb.captchaBackendBaseUrl";
 const defaultRepoURL = "https://github.com/skrashevich/meshtastic-firmware";
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captchaLoading, setCaptchaLoading] = useState(false);
   const [captchaSessionToken, setCaptchaSessionToken] = useState("");
+  const [captchaBackendBaseUrl, setCaptchaBackendBaseUrl] = useState("");
   const [captchaRequired, setCaptchaRequired] = useState(true);
   const [devices, setDevices] = useState<string[]>([]);
   const [selectedDevice, setSelectedDevice] = useState("");
@@ -45,6 +47,7 @@ export default function App() {
   const [startingBuild, setStartingBuild] = useState(false);
 
   const [job, setJob] = useState<JobState | null>(null);
+  const [jobBackendBaseUrl, setJobBackendBaseUrl] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -117,13 +120,17 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     const storedSessionToken = (window.sessionStorage.getItem(captchaSessionStorageKey) ?? "").trim();
+    const storedSessionBackend = (window.sessionStorage.getItem(captchaBackendStorageKey) ?? "").trim();
     if (storedSessionToken) {
       setCaptchaSessionToken(storedSessionToken);
+    }
+    if (storedSessionBackend) {
+      setCaptchaBackendBaseUrl(storedSessionBackend);
     }
 
     const bootstrap = async () => {
       try {
-        const health = await getServerHealth();
+        const health = await getServerHealth(storedSessionBackend || undefined, saveCaptchaBackendBaseUrl);
         if (cancelled) {
           return;
         }
@@ -139,7 +146,7 @@ export default function App() {
         }
 
         if (!storedSessionToken) {
-          await refreshCaptcha();
+          await refreshCaptcha(storedSessionBackend || undefined);
         }
       } catch {
         if (cancelled) {
@@ -148,7 +155,7 @@ export default function App() {
 
         setCaptchaRequired(true);
         if (!storedSessionToken) {
-          await refreshCaptcha();
+          await refreshCaptcha(storedSessionBackend || undefined);
         }
       }
     };
@@ -160,28 +167,57 @@ export default function App() {
     };
   }, []);
 
-  function saveCaptchaSessionToken(token: string) {
+  function saveCaptchaSessionToken(token: string, backendBaseUrl?: string) {
     const value = token.trim();
     if (!value) {
       return;
     }
+
+    if (backendBaseUrl) {
+      saveCaptchaBackendBaseUrl(backendBaseUrl);
+    }
+
     setCaptchaSessionToken(value);
     window.sessionStorage.setItem(captchaSessionStorageKey, value);
+  }
+
+  function saveCaptchaBackendBaseUrl(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return;
+    }
+
+    setCaptchaBackendBaseUrl(normalized);
+    window.sessionStorage.setItem(captchaBackendStorageKey, normalized);
+  }
+
+  function saveJobBackendBaseUrl(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return;
+    }
+
+    setJobBackendBaseUrl((current) => (current === normalized ? current : normalized));
   }
 
   function clearCaptchaSessionToken() {
     setCaptchaSessionToken("");
     window.sessionStorage.removeItem(captchaSessionStorageKey);
+    setCaptchaBackendBaseUrl("");
+    window.sessionStorage.removeItem(captchaBackendStorageKey);
   }
 
-  async function refreshCaptcha() {
+  async function refreshCaptcha(preferredBackendBaseUrl?: string) {
     if (!captchaRequired) {
       return;
     }
 
     setCaptchaLoading(true);
     try {
-      const challenge = await getCaptchaChallenge();
+      const challenge = await getCaptchaChallenge(
+        preferredBackendBaseUrl || captchaBackendBaseUrl || undefined,
+        saveCaptchaBackendBaseUrl,
+      );
 
       if (challenge.captchaRequired === false) {
         setCaptchaRequired(false);
@@ -212,10 +248,16 @@ export default function App() {
 
     const intervalId = window.setInterval(async () => {
       try {
-        const current = await getJob(job.id);
+        let currentBackendBaseUrl = jobBackendBaseUrl;
+        const rememberBackend = (backendBaseUrl: string) => {
+          currentBackendBaseUrl = backendBaseUrl;
+          saveJobBackendBaseUrl(backendBaseUrl);
+        };
+
+        const current = await getJob(job.id, currentBackendBaseUrl || undefined, rememberBackend);
         setJob(current);
         if (current.status === "success") {
-          const files = await getArtifacts(current.id);
+          const files = await getArtifacts(current.id, currentBackendBaseUrl || undefined, rememberBackend);
           setArtifacts(files);
         }
         if (finalStatuses.has(current.status)) {
@@ -231,7 +273,7 @@ export default function App() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [job?.id]);
+  }, [job?.id, jobBackendBaseUrl, t.unknownError]);
 
   async function onDiscoverSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -250,16 +292,40 @@ export default function App() {
 
     setDiscovering(true);
     try {
+      const preferredBackend = captchaBackendBaseUrl || undefined;
+      let resolvedBackendBaseUrl = preferredBackend ?? "";
+      const rememberCaptchaBackend = (backendBaseUrl: string) => {
+        resolvedBackendBaseUrl = backendBaseUrl;
+        saveCaptchaBackendBaseUrl(backendBaseUrl);
+      };
+
       const result = hasCaptchaSession
-        ? await discoverDevices(repoUrl.trim(), ref.trim(), undefined, undefined, captchaSessionToken)
-        : await discoverDevices(repoUrl.trim(), ref.trim(), captcha?.captchaId, captchaAnswer.trim());
+        ? await discoverDevices(
+            repoUrl.trim(),
+            ref.trim(),
+            undefined,
+            undefined,
+            captchaSessionToken,
+            preferredBackend,
+            rememberCaptchaBackend,
+          )
+        : await discoverDevices(
+            repoUrl.trim(),
+            ref.trim(),
+            captcha?.captchaId,
+            captchaAnswer.trim(),
+            undefined,
+            preferredBackend,
+            rememberCaptchaBackend,
+          );
 
       if (result.captchaSessionToken) {
-        saveCaptchaSessionToken(result.captchaSessionToken);
+        saveCaptchaSessionToken(result.captchaSessionToken, resolvedBackendBaseUrl);
       }
       setDevices(result.devices);
       setSelectedDevice(result.devices[0] ?? "");
       setJob(null);
+      setJobBackendBaseUrl("");
       setArtifacts([]);
       setLogs([]);
       closeStream();
@@ -272,7 +338,7 @@ export default function App() {
       }
 
       if (captchaRequired && (!hasCaptchaSession || message.toLowerCase().includes("captcha"))) {
-        void refreshCaptcha();
+        void refreshCaptcha(captchaBackendBaseUrl || undefined);
       }
     } finally {
       setDiscovering(false);
@@ -294,18 +360,44 @@ export default function App() {
 
     setStartingBuild(true);
     try {
+      const preferredBackend = captchaBackendBaseUrl || undefined;
+      let resolvedBackendBaseUrl = preferredBackend ?? "";
+      const rememberBuildBackend = (backendBaseUrl: string) => {
+        resolvedBackendBaseUrl = backendBaseUrl;
+        saveCaptchaBackendBaseUrl(backendBaseUrl);
+        saveJobBackendBaseUrl(backendBaseUrl);
+      };
+
       const created = hasCaptchaSession
-        ? await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice, undefined, undefined, captchaSessionToken)
-        : await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice, captcha?.captchaId, captchaAnswer.trim());
+        ? await createBuildJob(
+            repoUrl.trim(),
+            ref.trim(),
+            selectedDevice,
+            undefined,
+            undefined,
+            captchaSessionToken,
+            preferredBackend,
+            rememberBuildBackend,
+          )
+        : await createBuildJob(
+            repoUrl.trim(),
+            ref.trim(),
+            selectedDevice,
+            captcha?.captchaId,
+            captchaAnswer.trim(),
+            undefined,
+            preferredBackend,
+            rememberBuildBackend,
+          );
 
       if (created.captchaSessionToken) {
-        saveCaptchaSessionToken(created.captchaSessionToken);
+        saveCaptchaSessionToken(created.captchaSessionToken, resolvedBackendBaseUrl);
       }
 
       setJob(created);
       setArtifacts([]);
       setLogs([]);
-      openStream(created.id);
+      openStream(created.id, resolvedBackendBaseUrl || preferredBackend);
     } catch (requestError) {
       const message = errorToMessage(requestError, t.unknownError);
       setError(message);
@@ -319,10 +411,10 @@ export default function App() {
     }
   }
 
-  function openStream(jobId: string) {
+  function openStream(jobId: string, backendBaseUrl?: string) {
     closeStream();
 
-    const stream = createLogStream(jobId);
+    const stream = createLogStream(jobId, backendBaseUrl, saveJobBackendBaseUrl);
     stream.addEventListener("log", (event) => {
       const message = event as MessageEvent<string>;
       setLogs((current) => [...current, message.data]);
@@ -578,7 +670,7 @@ export default function App() {
             <ul className="artifacts-list">
               {artifacts.map((artifact) => (
                 <li key={artifact.id}>
-                  <a href={apiUrl(artifact.downloadUrl)} target="_blank" rel="noreferrer">
+                  <a href={apiUrl(artifact.downloadUrl, jobBackendBaseUrl || undefined)} target="_blank" rel="noreferrer">
                     {artifact.relativePath}
                   </a>
                   <span>{formatSize(artifact.size)}</span>

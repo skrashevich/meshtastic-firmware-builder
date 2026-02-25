@@ -43,7 +43,9 @@ COPY frontend/ ./
 
 # Build for production
 ARG VITE_API_BASE_URL=http://localhost:8080
+ARG VITE_API_BASE_URLS=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_API_BASE_URLS=$VITE_API_BASE_URLS
 
 RUN npm run build
 
