@@ -18,13 +18,14 @@ import { Locale, dict } from "./i18n";
 
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 const captchaSessionStorageKey = "mfb.captchaSessionToken";
+const defaultRepoURL = "https://github.com/skrashevich/meshtastic-firmware";
 
 export default function App() {
   const supportChatUrl = "https://t.me/meshtastic_firmware_builder";
   const supportChatRef = "t.me/meshtastic_firmware_builder";
 
   const [locale, setLocale] = useState<Locale>("ru");
-  const [repoUrl, setRepoUrl] = useState("");
+  const [repoUrl, setRepoUrl] = useState(defaultRepoURL);
   const [ref, setRef] = useState("");
   const [repoRefs, setRepoRefs] = useState<RepoRefsResponse | null>(null);
   const [refsLoading, setRefsLoading] = useState(false);
