@@ -113,7 +113,6 @@ export default function App() {
     const storedSessionToken = window.sessionStorage.getItem(captchaSessionStorageKey) ?? "";
     if (storedSessionToken) {
       setCaptchaSessionToken(storedSessionToken);
-      return;
     }
     void refreshCaptcha();
   }, []);
@@ -124,8 +123,6 @@ export default function App() {
       return;
     }
     setCaptchaSessionToken(value);
-    setCaptcha(null);
-    setCaptchaAnswer("");
     window.sessionStorage.setItem(captchaSessionStorageKey, value);
   }
 
@@ -134,10 +131,7 @@ export default function App() {
     window.sessionStorage.removeItem(captchaSessionStorageKey);
   }
 
-  async function refreshCaptcha(force = false) {
-    if (!force && captchaSessionToken) {
-      return;
-    }
+  async function refreshCaptcha() {
     setCaptchaLoading(true);
     try {
       const challenge = await getCaptchaChallenge();
@@ -204,6 +198,9 @@ export default function App() {
         captcha.captchaId,
         captchaAnswer.trim(),
       );
+      if (result.captchaSessionToken) {
+        saveCaptchaSessionToken(result.captchaSessionToken);
+      }
       setDevices(result.devices);
       setSelectedDevice(result.devices[0] ?? "");
       setJob(null);
@@ -225,17 +222,17 @@ export default function App() {
       setError(t.chooseDevice);
       return;
     }
-    const hasCaptchaSession = captchaSessionToken.trim() !== "";
-    if (!hasCaptchaSession && (!captcha || !captchaAnswer.trim())) {
-      setError(t.captchaRequired);
-      return;
-    }
 
     setStartingBuild(true);
     try {
-      const created = hasCaptchaSession
-        ? await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice, undefined, undefined, captchaSessionToken)
-        : await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice, captcha?.captchaId, captchaAnswer.trim());
+      const created = await createBuildJob(
+        repoUrl.trim(),
+        ref.trim(),
+        selectedDevice,
+        undefined,
+        undefined,
+        captchaSessionToken || undefined,
+      );
 
       if (created.captchaSessionToken) {
         saveCaptchaSessionToken(created.captchaSessionToken);
@@ -249,11 +246,8 @@ export default function App() {
       const message = errorToMessage(requestError, t.unknownError);
       setError(message);
 
-      if (hasCaptchaSession && message.toLowerCase().includes("captcha")) {
+      if (message.toLowerCase().includes("captcha")) {
         clearCaptchaSessionToken();
-      }
-      if (!hasCaptchaSession || message.toLowerCase().includes("captcha")) {
-        void refreshCaptcha(hasCaptchaSession);
       }
     } finally {
       setStartingBuild(false);
@@ -410,26 +404,24 @@ export default function App() {
               </div>
             ) : null}
 
-            {captchaSessionToken ? (
-              <p className="muted refs-meta">{t.captchaSessionActive}</p>
-            ) : (
-              <label>
-                <span>{t.captchaLabel}</span>
-                <div className="captcha-row">
-                  <div className="captcha-question">{captchaLoading ? t.captchaLoading : captcha?.question ?? t.captchaLoading}</div>
-                  <button className="ghost" type="button" onClick={() => void refreshCaptcha()} disabled={captchaLoading}>
-                    {t.captchaRefresh}
-                  </button>
+            <label>
+              <span>{t.captchaLabel}</span>
+              <div className="captcha-row">
+                <div className="captcha-question" title={t.captchaTooltip}>
+                  {captchaLoading ? t.captchaLoading : captcha?.question ?? t.captchaLoading}
                 </div>
-                <input
-                  value={captchaAnswer}
-                  onChange={(event) => setCaptchaAnswer(event.target.value)}
-                  placeholder={t.captchaPlaceholder}
-                />
-              </label>
-            )}
+                <button className="ghost" type="button" onClick={() => void refreshCaptcha()} disabled={captchaLoading}>
+                  {t.captchaRefresh}
+                </button>
+              </div>
+              <input
+                value={captchaAnswer}
+                onChange={(event) => setCaptchaAnswer(event.target.value)}
+                placeholder={t.captchaPlaceholder}
+              />
+            </label>
 
-            <button className="primary" type="submit" disabled={discovering}>
+            <button className="primary" type="submit" disabled={discovering || captchaLoading || !captcha || !captchaAnswer.trim()}>
               {discovering ? t.discovering : t.discover}
             </button>
           </form>
@@ -459,16 +451,16 @@ export default function App() {
             ))}
           </div>
 
+          {captchaSessionToken ? (
+            <p className="muted refs-meta">{t.captchaSessionActive}</p>
+          ) : null}
+
           <div className="actions-row">
             <button
               className="primary"
               onClick={onStartBuild}
               type="button"
-              disabled={
-                !selectedDevice ||
-                startingBuild ||
-                (captchaSessionToken.trim() === "" && (captchaLoading || !captcha || !captchaAnswer.trim()))
-              }
+              disabled={!selectedDevice || startingBuild || !captchaSessionToken}
             >
               {startingBuild ? t.startingBuild : t.startBuild}
             </button>

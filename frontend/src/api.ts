@@ -29,6 +29,7 @@ export interface DiscoverResponse {
   repoUrl: string;
   ref?: string;
   devices: string[];
+  captchaSessionToken?: string;
 }
 
 export interface RepoRefItem {

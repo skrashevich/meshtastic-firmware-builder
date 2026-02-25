@@ -105,6 +105,12 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 		return
 	}
 
+	sessionToken, err := s.createCaptchaSession(r.RemoteAddr)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_SESSION_FAILED", err.Error(), nil)
+		return
+	}
+
 	devices, err := s.manager.Discover(r.Context(), req.RepoURL, req.Ref)
 	if err != nil {
 		s.writeError(w, http.StatusUnprocessableEntity, requestID, "DISCOVERY_FAILED", err.Error(), nil)
@@ -112,9 +118,10 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 	}
 
 	data := discoverResponse{
-		RepoURL: req.RepoURL,
-		Ref:     req.Ref,
-		Devices: devices,
+		RepoURL:             req.RepoURL,
+		Ref:                 req.Ref,
+		Devices:             devices,
+		CaptchaSessionToken: sessionToken,
 	}
 	s.writeSuccess(w, http.StatusOK, requestID, data)
 }
@@ -495,9 +502,10 @@ type repoRefsRequest struct {
 }
 
 type discoverResponse struct {
-	RepoURL string   `json:"repoUrl"`
-	Ref     string   `json:"ref,omitempty"`
-	Devices []string `json:"devices"`
+	RepoURL             string   `json:"repoUrl"`
+	Ref                 string   `json:"ref,omitempty"`
+	Devices             []string `json:"devices"`
+	CaptchaSessionToken string   `json:"captchaSessionToken,omitempty"`
 }
 
 type repoRefsResponse struct {

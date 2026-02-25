@@ -5,7 +5,7 @@ Web application for building Meshtastic firmware from non-official fork reposito
 User flow:
 1. User provides repository URL.
 2. Frontend loads default branch, recent branches, and recent tags (manual ref input still available).
-3. User solves captcha to discover devices, then solves captcha again before build start.
+3. User solves captcha to discover devices; the resulting session token covers builds within the same browser session.
 4. Backend clones repository and runs `pio run -e <target>` inside Docker container.
 5. Frontend shows live build logs and firmware download links.
 
