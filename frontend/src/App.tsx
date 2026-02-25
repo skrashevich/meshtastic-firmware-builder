@@ -501,7 +501,7 @@ export default function App() {
   const backendIsProxied =
     activeBackendBaseUrl !== "" &&
     activeGatewayBaseUrl !== "" &&
-    activeBackendBaseUrl !== activeGatewayBaseUrl;
+    !isSameEndpointNode(activeBackendBaseUrl, activeGatewayBaseUrl);
   const backendRouteLabel =
     activeBackendBaseUrl === ""
       ? ""
@@ -870,6 +870,32 @@ function formatBackendEndpoint(value: string): string {
     return parsedValue.host;
   } catch {
     return trimmedValue;
+  }
+}
+
+function isSameEndpointNode(leftValue: string, rightValue: string): boolean {
+  const leftNodeID = endpointNodeID(leftValue);
+  const rightNodeID = endpointNodeID(rightValue);
+  return leftNodeID !== null && rightNodeID !== null && leftNodeID === rightNodeID;
+}
+
+function endpointNodeID(value: string): string | null {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmedValue);
+    const host = parsed.hostname.toLowerCase();
+    const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+    if (!host) {
+      return null;
+    }
+
+    return `${host}:${port}`;
+  } catch {
+    return null;
   }
 }
 

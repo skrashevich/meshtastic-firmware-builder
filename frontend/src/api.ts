@@ -112,23 +112,19 @@ type BackendResolvedHandler = (route: BackendRouteInfo) => void;
 type BackendHealthListener = () => void;
 
 let nextApiBaseUrlIndex = 0;
-const backendPool = [...INITIAL_API_BASE_URLS];
-let currentGatewayBaseUrl = backendPool[0];
+let currentGatewayBaseUrl = DEFAULT_API_BASE_URL;
 
-const backendHealthStates = new Map<string, BackendHealthState>(
-  backendPool.map((backendBaseUrl) => [
-    backendBaseUrl,
-    {
-      healthy: true,
-      checkedAtMs: 0,
-      unavailableUntilMs: 0,
-    },
-  ]),
-);
-
+const backendPool: string[] = [];
+const backendHealthStates = new Map<string, BackendHealthState>();
 const backendLoadStates = new Map<string, BackendLoadState>();
 
 const backendHealthListeners = new Set<BackendHealthListener>();
+
+registerBackendPool(INITIAL_API_BASE_URLS);
+if (backendPool.length === 0) {
+  registerBackendPool([DEFAULT_API_BASE_URL]);
+}
+currentGatewayBaseUrl = backendPool[0];
 
 export function pickApiBaseUrl(): string {
   const roundRobinOrder = buildRoundRobinOrder();
@@ -143,17 +139,19 @@ export function pickApiBaseUrl(): string {
 
 export function pickGatewayBaseUrl(): string {
   if (!isBackendInCooldown(currentGatewayBaseUrl)) {
-    return currentGatewayBaseUrl;
+    return resolveApiBaseUrl(currentGatewayBaseUrl);
   }
 
-  const fallbackOrder = buildRoundRobinOrder();
+  const fallbackOrder = getBackendPoolSnapshot().filter(
+    (backendBaseUrl) => !isSameBackendNode(backendBaseUrl, currentGatewayBaseUrl),
+  );
   for (const backendBaseUrl of fallbackOrder) {
     if (!isBackendInCooldown(backendBaseUrl)) {
       return backendBaseUrl;
     }
   }
 
-  return fallbackOrder[0];
+  return fallbackOrder[0] ?? resolveApiBaseUrl(undefined);
 }
 
 export function apiUrl(path: string, backendBaseUrl?: string): string {
@@ -164,7 +162,7 @@ export function routedApiUrl(path: string, backendBaseUrl?: string, gatewayBaseU
   const targetBackendBaseUrl = resolveApiBaseUrl(backendBaseUrl ?? pickApiBaseUrl());
   const resolvedGatewayBaseUrl = resolveApiBaseUrl(gatewayBaseUrl ?? pickGatewayBaseUrl());
 
-  if (targetBackendBaseUrl === resolvedGatewayBaseUrl) {
+  if (isSameBackendNode(targetBackendBaseUrl, resolvedGatewayBaseUrl)) {
     return apiUrl(path, resolvedGatewayBaseUrl);
   }
 
@@ -183,8 +181,10 @@ export function registerBackendPool(backendBaseUrls: string[]): void {
     if (ensureBackendInPool(normalizedBackendBaseUrl)) {
       hasChanges = true;
     }
-    if (!backendHealthStates.has(normalizedBackendBaseUrl)) {
-      backendHealthStates.set(normalizedBackendBaseUrl, {
+
+    const resolvedBackendInPool = findBackendInPool(normalizedBackendBaseUrl) ?? normalizedBackendBaseUrl;
+    if (!backendHealthStates.has(resolvedBackendInPool)) {
+      backendHealthStates.set(resolvedBackendInPool, {
         healthy: true,
         checkedAtMs: 0,
         unavailableUntilMs: 0,
@@ -199,7 +199,16 @@ export function registerBackendPool(backendBaseUrls: string[]): void {
 }
 
 export async function refreshBackendLoadSnapshot(preferredBackendBaseUrl?: string): Promise<void> {
-  const candidates = buildBackendAttemptOrder(preferredBackendBaseUrl);
+  const preferredBackend = parseApiBaseUrl(preferredBackendBaseUrl ?? "");
+  if (preferredBackend) {
+    ensureBackendInPool(preferredBackend);
+  }
+
+  const knownBackends = getBackendPoolSnapshot();
+  const candidates =
+    preferredBackend === null
+      ? knownBackends
+      : [preferredBackend, ...knownBackends.filter((backendBaseUrl) => !isSameBackendNode(backendBaseUrl, preferredBackend))];
 
   await Promise.all(
     candidates.map(async (backendBaseUrl) => {
@@ -235,8 +244,8 @@ export function getBackendNodeHealthSnapshot(
     return {
       baseUrl,
       status: backendState.healthy ? "alive" : "degraded",
-      isCurrentBackend: resolvedCurrentBackend !== "" && resolvedCurrentBackend === baseUrl,
-      isCurrentGateway: resolvedCurrentGateway !== "" && resolvedCurrentGateway === baseUrl,
+      isCurrentBackend: resolvedCurrentBackend !== "" && isSameBackendNode(resolvedCurrentBackend, baseUrl),
+      isCurrentGateway: resolvedCurrentGateway !== "" && isSameBackendNode(resolvedCurrentGateway, baseUrl),
     };
   });
 }
@@ -373,14 +382,14 @@ export function createLogStream(
   currentGatewayBaseUrl = gatewayBaseUrl;
 
   const streamUrl =
-    targetBackendBaseUrl === gatewayBaseUrl
+    isSameBackendNode(targetBackendBaseUrl, gatewayBaseUrl)
       ? apiUrl(`/api/jobs/${jobId}/logs/stream`, gatewayBaseUrl)
       : appendTargetBackendQuery(apiUrl(`/api/jobs/${jobId}/logs/stream`, gatewayBaseUrl), targetBackendBaseUrl);
 
   onBackendResolved?.({
     backendBaseUrl: targetBackendBaseUrl,
     gatewayBaseUrl,
-    proxied: targetBackendBaseUrl !== gatewayBaseUrl,
+    proxied: !isSameBackendNode(targetBackendBaseUrl, gatewayBaseUrl),
   });
 
   return new EventSource(streamUrl);
@@ -445,7 +454,7 @@ async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
 
       if (
         response.status === 403 &&
-        targetBackendBaseUrl !== gatewayBaseUrl &&
+        !isSameBackendNode(targetBackendBaseUrl, gatewayBaseUrl) &&
         payload.error?.code === PROXY_TARGET_NOT_ALLOWED_CODE
       ) {
         hasUnavailableBackend = true;
@@ -455,7 +464,7 @@ async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
 
       if (isBackendUnavailableStatus(response.status)) {
         hasUnavailableBackend = true;
-        if (targetBackendBaseUrl === gatewayBaseUrl) {
+        if (isSameBackendNode(targetBackendBaseUrl, gatewayBaseUrl)) {
           markBackendUnavailable(gatewayBaseUrl);
           gatewayTransportFailed = true;
           break;
@@ -519,7 +528,17 @@ function buildBackendAttemptOrder(preferredBackendBaseUrl?: string, preferLeastL
     return roundRobinOrder;
   }
 
-  return [preferredBackend, ...roundRobinOrder.filter((backendBaseUrl) => backendBaseUrl !== preferredBackend)];
+  ensureBackendInPool(preferredBackend);
+  const resolvedPreferredBackend = findBackendInPool(preferredBackend) ?? preferredBackend;
+
+  if (!roundRobinOrder.some((backendBaseUrl) => isSameBackendNode(backendBaseUrl, resolvedPreferredBackend))) {
+    roundRobinOrder = [resolvedPreferredBackend, ...roundRobinOrder];
+  }
+
+  return [
+    resolvedPreferredBackend,
+    ...roundRobinOrder.filter((backendBaseUrl) => !isSameBackendNode(backendBaseUrl, resolvedPreferredBackend)),
+  ];
 }
 
 function sortBackendsByLoad(baseUrls: string[]): string[] {
@@ -541,7 +560,7 @@ function sortBackendsByLoad(baseUrls: string[]): string[] {
 
 function buildGatewayAttemptOrder(): string[] {
   const gatewayBaseUrl = resolveApiBaseUrl(currentGatewayBaseUrl);
-  const fallbackOrder = buildRoundRobinOrder().filter((backendBaseUrl) => backendBaseUrl !== gatewayBaseUrl);
+  const fallbackOrder = getBackendPoolSnapshot().filter((backendBaseUrl) => !isSameBackendNode(backendBaseUrl, gatewayBaseUrl));
   return [gatewayBaseUrl, ...fallbackOrder];
 }
 
@@ -566,12 +585,108 @@ function getBackendPoolSnapshot(): string[] {
 }
 
 function ensureBackendInPool(backendBaseUrl: string): boolean {
-  if (backendPool.includes(backendBaseUrl)) {
-    return false;
+  const existingBackend = findBackendInPool(backendBaseUrl);
+  if (existingBackend) {
+    const preferredBackend = selectPreferredBackendURL(existingBackend, backendBaseUrl);
+    if (preferredBackend === existingBackend) {
+      return false;
+    }
+
+    const backendIndex = backendPool.findIndex((value) => value === existingBackend);
+    if (backendIndex === -1) {
+      return false;
+    }
+
+    backendPool[backendIndex] = preferredBackend;
+    migrateBackendState(existingBackend, preferredBackend);
+    if (isSameBackendNode(currentGatewayBaseUrl, existingBackend)) {
+      currentGatewayBaseUrl = preferredBackend;
+    }
+
+    return true;
   }
 
   backendPool.push(backendBaseUrl);
   return true;
+}
+
+function findBackendInPool(backendBaseUrl: string): string | null {
+  const targetNodeKey = backendNodeKey(backendBaseUrl);
+  if (!targetNodeKey) {
+    return null;
+  }
+
+  for (const existingBackend of backendPool) {
+    if (backendNodeKey(existingBackend) === targetNodeKey) {
+      return existingBackend;
+    }
+  }
+
+  return null;
+}
+
+function selectPreferredBackendURL(currentBackendBaseUrl: string, candidateBackendBaseUrl: string): string {
+  if (currentBackendBaseUrl === candidateBackendBaseUrl) {
+    return currentBackendBaseUrl;
+  }
+
+  try {
+    const current = new URL(currentBackendBaseUrl);
+    const candidate = new URL(candidateBackendBaseUrl);
+
+    if (candidate.protocol === "https:" && current.protocol !== "https:") {
+      return candidateBackendBaseUrl;
+    }
+  } catch {
+    return currentBackendBaseUrl;
+  }
+
+  return currentBackendBaseUrl;
+}
+
+function migrateBackendState(fromBackendBaseUrl: string, toBackendBaseUrl: string): void {
+  if (fromBackendBaseUrl === toBackendBaseUrl) {
+    return;
+  }
+
+  const fromHealthState = backendHealthStates.get(fromBackendBaseUrl);
+  const toHealthState = backendHealthStates.get(toBackendBaseUrl);
+  if (fromHealthState && !toHealthState) {
+    backendHealthStates.set(toBackendBaseUrl, fromHealthState);
+  } else if (fromHealthState && toHealthState && fromHealthState.checkedAtMs > toHealthState.checkedAtMs) {
+    backendHealthStates.set(toBackendBaseUrl, fromHealthState);
+  }
+  backendHealthStates.delete(fromBackendBaseUrl);
+
+  const fromLoadState = backendLoadStates.get(fromBackendBaseUrl);
+  const toLoadState = backendLoadStates.get(toBackendBaseUrl);
+  if (fromLoadState && !toLoadState) {
+    backendLoadStates.set(toBackendBaseUrl, fromLoadState);
+  } else if (fromLoadState && toLoadState && fromLoadState.checkedAtMs > toLoadState.checkedAtMs) {
+    backendLoadStates.set(toBackendBaseUrl, fromLoadState);
+  }
+  backendLoadStates.delete(fromBackendBaseUrl);
+}
+
+function isSameBackendNode(leftBackendBaseUrl: string, rightBackendBaseUrl: string): boolean {
+  const leftKey = backendNodeKey(leftBackendBaseUrl);
+  const rightKey = backendNodeKey(rightBackendBaseUrl);
+  return leftKey !== null && rightKey !== null && leftKey === rightKey;
+}
+
+function backendNodeKey(backendBaseUrl: string): string | null {
+  try {
+    const parsed = new URL(backendBaseUrl);
+    const host = parsed.hostname.toLowerCase();
+    const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+    if (!host) {
+      return null;
+    }
+
+    return `${host}:${port}`;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeHttpMethod(method?: string): string {
@@ -654,8 +769,9 @@ function isBackendInCooldown(backendBaseUrl: string): boolean {
 
 function getBackendHealthState(backendBaseUrl: string): BackendHealthState {
   ensureBackendInPool(backendBaseUrl);
+  const resolvedBackendBaseUrl = findBackendInPool(backendBaseUrl) ?? backendBaseUrl;
 
-  const existingState = backendHealthStates.get(backendBaseUrl);
+  const existingState = backendHealthStates.get(resolvedBackendBaseUrl);
   if (existingState) {
     return existingState;
   }
@@ -665,7 +781,7 @@ function getBackendHealthState(backendBaseUrl: string): BackendHealthState {
     checkedAtMs: 0,
     unavailableUntilMs: 0,
   };
-  backendHealthStates.set(backendBaseUrl, fallbackState);
+  backendHealthStates.set(resolvedBackendBaseUrl, fallbackState);
   return fallbackState;
 }
 
@@ -730,7 +846,7 @@ function buildRequestHeaders(
     headers.set("Content-Type", "application/json");
   }
 
-  if (targetBackendBaseUrl !== gatewayBaseUrl) {
+  if (!isSameBackendNode(targetBackendBaseUrl, gatewayBaseUrl)) {
     headers.set(TARGET_BACKEND_HEADER, targetBackendBaseUrl);
   } else {
     headers.delete(TARGET_BACKEND_HEADER);
@@ -746,7 +862,7 @@ function resolveBackendRouteInfo(response: Response, targetBackendBaseUrl: strin
   return {
     backendBaseUrl: servedBy,
     gatewayBaseUrl: proxiedVia,
-    proxied: servedBy !== proxiedVia,
+    proxied: !isSameBackendNode(servedBy, proxiedVia),
   };
 }
 
@@ -793,7 +909,7 @@ function resolveApiBaseUrl(backendBaseUrl?: string): string {
 
   ensureBackendInPool(parsedBaseUrl);
 
-  return parsedBaseUrl;
+  return findBackendInPool(parsedBaseUrl) ?? parsedBaseUrl;
 }
 
 function resolveApiBaseUrls(listValue?: string, fallbackValue?: string): string[] {
