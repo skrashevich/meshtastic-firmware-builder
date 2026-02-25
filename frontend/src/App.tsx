@@ -16,6 +16,7 @@ import {
   getArtifacts,
   getJob,
   getServerHealth,
+  refreshBackendLoadSnapshot,
   registerBackendPool,
   routedApiUrl,
   subscribeBackendHealth,
@@ -140,6 +141,7 @@ export default function App() {
       try {
         const health = await getServerHealth(storedSessionBackend || undefined, saveCaptchaBackendRoute);
         syncBackendPoolFromHealth(health.nodeBaseUrl, health.proxyBackendUrls);
+        await refreshBackendLoadSnapshot(storedSessionBackend || undefined);
         if (cancelled) {
           return;
         }
@@ -413,7 +415,10 @@ export default function App() {
 
     setStartingBuild(true);
     try {
-      const preferredBackend = captchaBackendBaseUrl || undefined;
+      const requiresCaptchaAffinity = captchaRequired && captchaBackendBaseUrl.trim() !== "";
+      const preferredBackend = requiresCaptchaAffinity ? captchaBackendBaseUrl : undefined;
+      await refreshBackendLoadSnapshot(preferredBackend);
+
       let resolvedBackendBaseUrl = preferredBackend ?? "";
       const rememberBuildBackend = (route: BackendRouteInfo) => {
         resolvedBackendBaseUrl = route.backendBaseUrl;

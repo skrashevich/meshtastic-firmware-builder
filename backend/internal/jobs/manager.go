@@ -35,6 +35,12 @@ type Manager struct {
 	now    func() time.Time
 }
 
+type LoadSnapshot struct {
+	RunningBuilds    int
+	QueuedBuilds     int
+	ConcurrentBuilds int
+}
+
 func NewManager(cfg config.Config, logger *log.Logger) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	mgr := &Manager{
@@ -164,6 +170,27 @@ func (m *Manager) GetArtifact(jobID string, artifactID string) (Artifact, error)
 		return Artifact{}, ErrArtifactNotFound
 	}
 	return artifact, nil
+}
+
+func (m *Manager) LoadSnapshot() LoadSnapshot {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	runningBuilds := 0
+	for _, job := range m.jobs {
+		job.mu.RLock()
+		status := job.Status
+		job.mu.RUnlock()
+		if status == StatusRunning {
+			runningBuilds++
+		}
+	}
+
+	return LoadSnapshot{
+		RunningBuilds:    runningBuilds,
+		QueuedBuilds:     len(m.queueOrder),
+		ConcurrentBuilds: m.cfg.ConcurrentBuilds,
+	}
 }
 
 func (m *Manager) workerLoop(workerID int) {
