@@ -130,6 +130,7 @@ func (s *Server) serveLocalRoutes(w http.ResponseWriter, r *http.Request, reques
 
 func (s *Server) buildHealthResponse(r *http.Request) healthResponse {
 	nodeBaseURL := s.localBackendBaseURL(r)
+	load := s.manager.LoadSnapshot()
 	proxyBackendURLs := make([]string, 0, len(s.proxyBackends))
 	for backendBaseURL := range s.proxyBackends {
 		if backendBaseURL == "" {
@@ -147,6 +148,9 @@ func (s *Server) buildHealthResponse(r *http.Request) healthResponse {
 		CaptchaRequired:  s.cfg.RequireCaptcha,
 		NodeBaseURL:      nodeBaseURL,
 		ProxyBackendURLs: proxyBackendURLs,
+		RunningBuilds:    load.RunningBuilds,
+		QueuedBuilds:     load.QueuedBuilds,
+		ConcurrentBuilds: load.ConcurrentBuilds,
 	}
 }
 
@@ -839,6 +843,9 @@ type healthResponse struct {
 	CaptchaRequired  bool     `json:"captchaRequired"`
 	NodeBaseURL      string   `json:"nodeBaseUrl,omitempty"`
 	ProxyBackendURLs []string `json:"proxyBackendUrls,omitempty"`
+	RunningBuilds    int      `json:"runningBuilds"`
+	QueuedBuilds     int      `json:"queuedBuilds"`
+	ConcurrentBuilds int      `json:"concurrentBuilds"`
 }
 
 type logsResponse struct {

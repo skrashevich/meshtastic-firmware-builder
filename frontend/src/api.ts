@@ -57,6 +57,9 @@ export interface ServerHealth {
   captchaRequired: boolean;
   nodeBaseUrl?: string;
   proxyBackendUrls?: string[];
+  runningBuilds: number;
+  queuedBuilds: number;
+  concurrentBuilds: number;
 }
 
 export interface LogsSnapshot {
@@ -85,6 +88,7 @@ const BACKEND_HEALTH_CACHE_TTL_MS = 5000;
 const BACKEND_UNAVAILABLE_COOLDOWN_MS = 15000;
 const BACKEND_HEALTH_TIMEOUT_MS = 1500;
 const BACKEND_UNAVAILABLE_STATUSES = new Set<number>([502, 503, 504]);
+const BACKEND_LOAD_INFO_TTL_MS = 10000;
 const TARGET_BACKEND_HEADER = "X-MFB-Target-Backend";
 const RESPONSE_SERVED_BY_HEADER = "X-MFB-Served-By";
 const RESPONSE_PROXIED_VIA_HEADER = "X-MFB-Proxied-Via";
@@ -95,6 +99,13 @@ interface BackendHealthState {
   healthy: boolean;
   checkedAtMs: number;
   unavailableUntilMs: number;
+}
+
+interface BackendLoadState {
+  runningBuilds: number;
+  queuedBuilds: number;
+  concurrentBuilds: number;
+  checkedAtMs: number;
 }
 
 type BackendResolvedHandler = (route: BackendRouteInfo) => void;
@@ -114,6 +125,8 @@ const backendHealthStates = new Map<string, BackendHealthState>(
     },
   ]),
 );
+
+const backendLoadStates = new Map<string, BackendLoadState>();
 
 const backendHealthListeners = new Set<BackendHealthListener>();
 
@@ -183,6 +196,23 @@ export function registerBackendPool(backendBaseUrls: string[]): void {
   if (hasChanges) {
     emitBackendHealthChanged();
   }
+}
+
+export async function refreshBackendLoadSnapshot(preferredBackendBaseUrl?: string): Promise<void> {
+  const candidates = buildBackendAttemptOrder(preferredBackendBaseUrl);
+
+  await Promise.all(
+    candidates.map(async (backendBaseUrl) => {
+      try {
+        await request<ServerHealth>(BACKEND_HEALTH_CHECK_PATH, {
+          method: "GET",
+          backendBaseUrl,
+        });
+      } catch {
+        // Ignore probe failures here: regular request path handles failover.
+      }
+    }),
+  );
 }
 
 export function subscribeBackendHealth(listener: BackendHealthListener): () => void {
@@ -367,7 +397,9 @@ async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
   delete (requestInit as { backendBaseUrl?: string }).backendBaseUrl;
   delete (requestInit as { onBackendResolved?: BackendResolvedHandler }).onBackendResolved;
 
-  const targetAttemptOrder = buildBackendAttemptOrder(init?.backendBaseUrl);
+  const method = normalizeHttpMethod(requestInit.method);
+  const preferLeastLoaded = shouldPreferLeastLoaded(path, method, init?.backendBaseUrl);
+  const targetAttemptOrder = buildBackendAttemptOrder(init?.backendBaseUrl, preferLeastLoaded);
   const gatewayAttemptOrder = buildGatewayAttemptOrder();
   let hasUnavailableBackend = false;
 
@@ -437,6 +469,13 @@ async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
       markBackendHealthy(routeInfo.gatewayBaseUrl);
       markBackendHealthy(routeInfo.backendBaseUrl);
       currentGatewayBaseUrl = routeInfo.gatewayBaseUrl;
+
+      if (path === BACKEND_HEALTH_CHECK_PATH && response.ok && isServerHealthData(payload.data)) {
+        registerBackendPool([routeInfo.backendBaseUrl, routeInfo.gatewayBaseUrl, payload.data.nodeBaseUrl ?? ""]);
+        registerBackendPool(payload.data.proxyBackendUrls ?? []);
+        updateBackendLoad(routeInfo.backendBaseUrl, payload.data);
+      }
+
       onBackendResolved?.(routeInfo);
 
       if (!response.ok) {
@@ -469,14 +508,35 @@ function stripTrailingSlash(value: string): string {
   return value;
 }
 
-function buildBackendAttemptOrder(preferredBackendBaseUrl?: string): string[] {
-  const roundRobinOrder = buildRoundRobinOrder();
+function buildBackendAttemptOrder(preferredBackendBaseUrl?: string, preferLeastLoaded = false): string[] {
+  let roundRobinOrder = buildRoundRobinOrder();
+  if (preferLeastLoaded) {
+    roundRobinOrder = sortBackendsByLoad(roundRobinOrder);
+  }
+
   const preferredBackend = preferredBackendBaseUrl ? parseApiBaseUrl(preferredBackendBaseUrl) : null;
   if (!preferredBackend) {
     return roundRobinOrder;
   }
 
   return [preferredBackend, ...roundRobinOrder.filter((backendBaseUrl) => backendBaseUrl !== preferredBackend)];
+}
+
+function sortBackendsByLoad(baseUrls: string[]): string[] {
+  const withPriority = baseUrls.map((baseUrl, index) => ({
+    baseUrl,
+    index,
+    score: getBackendLoadScore(baseUrl),
+  }));
+
+  withPriority.sort((left, right) => {
+    if (left.score === right.score) {
+      return left.index - right.index;
+    }
+    return left.score - right.score;
+  });
+
+  return withPriority.map((item) => item.baseUrl);
 }
 
 function buildGatewayAttemptOrder(): string[] {
@@ -512,6 +572,57 @@ function ensureBackendInPool(backendBaseUrl: string): boolean {
 
   backendPool.push(backendBaseUrl);
   return true;
+}
+
+function normalizeHttpMethod(method?: string): string {
+  return (method ?? "GET").toUpperCase();
+}
+
+function shouldPreferLeastLoaded(path: string, method: string, preferredBackendBaseUrl?: string): boolean {
+  if (preferredBackendBaseUrl) {
+    return false;
+  }
+
+  return path === "/api/jobs" && method === "POST";
+}
+
+function isServerHealthData(value: unknown): value is ServerHealth {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<ServerHealth>;
+  return (
+    typeof candidate.status === "string" &&
+    typeof candidate.captchaRequired === "boolean" &&
+    typeof candidate.runningBuilds === "number" &&
+    typeof candidate.queuedBuilds === "number" &&
+    typeof candidate.concurrentBuilds === "number"
+  );
+}
+
+function updateBackendLoad(backendBaseUrl: string, health: ServerHealth): void {
+  backendLoadStates.set(backendBaseUrl, {
+    runningBuilds: Math.max(0, Math.floor(health.runningBuilds)),
+    queuedBuilds: Math.max(0, Math.floor(health.queuedBuilds)),
+    concurrentBuilds: Math.max(1, Math.floor(health.concurrentBuilds)),
+    checkedAtMs: Date.now(),
+  });
+}
+
+function getBackendLoadScore(backendBaseUrl: string): number {
+  const loadState = backendLoadStates.get(backendBaseUrl);
+  if (!loadState) {
+    return Number.MAX_SAFE_INTEGER - 1;
+  }
+
+  const ageMs = Date.now() - loadState.checkedAtMs;
+  if (ageMs > BACKEND_LOAD_INFO_TTL_MS) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const capacity = Math.max(1, loadState.concurrentBuilds);
+  return (loadState.runningBuilds + loadState.queuedBuilds) / capacity;
 }
 
 async function isGatewayAvailable(gatewayBaseUrl: string): Promise<boolean> {
