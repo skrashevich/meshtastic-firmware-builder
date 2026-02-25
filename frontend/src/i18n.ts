@@ -32,6 +32,8 @@ type Dictionary = {
   backendUnknown: string;
   backendVia: string;
   backendDirect: string;
+  backendAlive: string;
+  backendDegraded: string;
   logs: string;
   artifacts: string;
   noArtifacts: string;
@@ -90,6 +92,8 @@ export const dict: Record<Locale, Dictionary> = {
     backendUnknown: "не определен",
     backendVia: "через {gateway}",
     backendDirect: "напрямую",
+    backendAlive: "alive",
+    backendDegraded: "degraded",
     logs: "Логи сборки",
     artifacts: "Файлы прошивки",
     noArtifacts: "Файлы пока недоступны",
@@ -154,6 +158,8 @@ export const dict: Record<Locale, Dictionary> = {
     backendUnknown: "unknown",
     backendVia: "via {gateway}",
     backendDirect: "direct",
+    backendAlive: "alive",
+    backendDegraded: "degraded",
     logs: "Build logs",
     artifacts: "Firmware files",
     noArtifacts: "No files available yet",

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
+  BackendNodeHealth,
   ArtifactItem,
   BackendRouteInfo,
   CaptchaChallenge,
@@ -10,11 +11,13 @@ import {
   createLogStream,
   discoverDevices,
   discoverRepoRefs,
+  getBackendNodeHealthSnapshot,
   getCaptchaChallenge,
   getArtifacts,
   getJob,
   getServerHealth,
   routedApiUrl,
+  subscribeBackendHealth,
 } from "./api";
 import { Locale, dict } from "./i18n";
 
@@ -50,6 +53,7 @@ export default function App() {
   const [job, setJob] = useState<JobState | null>(null);
   const [jobBackendBaseUrl, setJobBackendBaseUrl] = useState("");
   const [gatewayBackendBaseUrl, setGatewayBackendBaseUrl] = useState("");
+  const [backendHealthNodes, setBackendHealthNodes] = useState<BackendNodeHealth[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -170,6 +174,20 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const updateHealthNodes = () => {
+      const currentBackendBaseUrl = (jobBackendBaseUrl || captchaBackendBaseUrl || "").trim();
+      const currentGatewayBaseUrl = (gatewayBackendBaseUrl || currentBackendBaseUrl || "").trim();
+
+      setBackendHealthNodes(
+        getBackendNodeHealthSnapshot(currentBackendBaseUrl || undefined, currentGatewayBaseUrl || undefined),
+      );
+    };
+
+    updateHealthNodes();
+    return subscribeBackendHealth(updateHealthNodes);
+  }, [jobBackendBaseUrl, captchaBackendBaseUrl, gatewayBackendBaseUrl]);
+
   function saveCaptchaSessionToken(token: string, backendBaseUrl?: string) {
     const value = token.trim();
     if (!value) {
@@ -231,6 +249,7 @@ export default function App() {
     setCaptchaSessionToken("");
     window.sessionStorage.removeItem(captchaSessionStorageKey);
     setCaptchaBackendBaseUrl("");
+    setGatewayBackendBaseUrl("");
     window.sessionStorage.removeItem(captchaBackendStorageKey);
   }
 
@@ -477,6 +496,7 @@ export default function App() {
       : backendIsProxied
         ? t.backendVia.replace("{gateway}", gatewayLabel)
         : t.backendDirect;
+  const hasBackendHealthNodes = backendHealthNodes.length > 0;
   const queueNote =
     job?.status === "queued"
       ? typeof job.queuePosition === "number" && job.queuePosition > 0
@@ -647,6 +667,25 @@ export default function App() {
               <span className={backendIsProxied ? "status-chip backend-chip proxied" : "status-chip backend-chip"}>
                 {t.backendNode}: <strong>{backendLabel}</strong>
                 {backendRouteLabel ? <span className="backend-route-note">{backendRouteLabel}</span> : null}
+                {hasBackendHealthNodes ? (
+                  <span className="backend-health-list">
+                    {backendHealthNodes.map((node) => {
+                      const endpointLabel = formatBackendEndpoint(node.baseUrl);
+                      const statusLabel = node.status === "alive" ? t.backendAlive : t.backendDegraded;
+                      const nodeClasses = ["backend-health-node", node.status, node.isCurrentBackend ? "current" : ""]
+                        .filter(Boolean)
+                        .join(" ");
+
+                      return (
+                        <span key={node.baseUrl} className={nodeClasses} title={`${endpointLabel} - ${statusLabel}`}>
+                          <span className="backend-health-dot" />
+                          <span className="backend-health-label">{endpointLabel}</span>
+                          <span className="backend-health-state">{statusLabel}</span>
+                        </span>
+                      );
+                    })}
+                  </span>
+                ) : null}
               </span>
             </div>
           </div>
