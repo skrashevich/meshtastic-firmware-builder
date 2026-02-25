@@ -13,6 +13,8 @@ export interface JobState {
   repoUrl: string;
   ref?: string;
   device: string;
+  buildFlags?: string[];
+  libDeps?: string[];
   status: JobStatus;
   captchaSessionToken?: string;
   queuePosition?: number;
@@ -103,11 +105,28 @@ export async function createBuildJob(
   repoUrl: string,
   ref: string,
   device: string,
+  buildFlags?: string[],
+  libDeps?: string[],
   captchaId?: string,
   captchaAnswer?: string,
   captchaSessionToken?: string,
 ): Promise<JobState> {
-  const payload: Record<string, string> = { repoUrl, ref, device };
+  const payload: {
+    repoUrl: string;
+    ref: string;
+    device: string;
+    buildFlags?: string[];
+    libDeps?: string[];
+    captchaId?: string;
+    captchaAnswer?: string;
+    captchaSessionToken?: string;
+  } = { repoUrl, ref, device };
+  if (buildFlags && buildFlags.length > 0) {
+    payload.buildFlags = buildFlags;
+  }
+  if (libDeps && libDeps.length > 0) {
+    payload.libDeps = libDeps;
+  }
   if (captchaId) {
     payload.captchaId = captchaId;
   }

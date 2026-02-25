@@ -22,11 +22,11 @@ func TestQueuePositionForQueuedJobs(t *testing.T) {
 	}, log.New(io.Discard, "", 0))
 	defer mgr.Close()
 
-	first, err := mgr.CreateJob("https://github.com/example/repo.git", "main", "tbeam")
+	first, err := mgr.CreateJob("https://github.com/example/repo.git", "main", "tbeam", BuildOptions{})
 	if err != nil {
 		t.Fatalf("create first job: %v", err)
 	}
-	second, err := mgr.CreateJob("https://github.com/example/repo.git", "main", "tbeam")
+	second, err := mgr.CreateJob("https://github.com/example/repo.git", "main", "tbeam", BuildOptions{})
 	if err != nil {
 		t.Fatalf("create second job: %v", err)
 	}
@@ -67,18 +67,18 @@ func TestQueueETAForQueuedJobs(t *testing.T) {
 		queueOrder: []string{"q1", "q2"},
 	}
 
-	runningA := newJob("run-a", "https://github.com/example/repo.git", "main", "tbeam", "/tmp/run-a", now)
+	runningA := newJob("run-a", "https://github.com/example/repo.git", "main", "tbeam", BuildOptions{}, "/tmp/run-a", now)
 	runningA.markRunning(now.Add(-5 * time.Minute))
 
-	runningB := newJob("run-b", "https://github.com/example/repo.git", "main", "tbeam", "/tmp/run-b", now)
+	runningB := newJob("run-b", "https://github.com/example/repo.git", "main", "tbeam", BuildOptions{}, "/tmp/run-b", now)
 	runningB.markRunning(now.Add(-4 * time.Minute))
 
-	completed := newJob("done", "https://github.com/example/repo.git", "main", "tbeam", "/tmp/done", now)
+	completed := newJob("done", "https://github.com/example/repo.git", "main", "tbeam", BuildOptions{}, "/tmp/done", now)
 	completed.markRunning(now.Add(-15 * time.Minute))
 	completed.markSuccess(now.Add(-11*time.Minute), nil)
 
-	queuedFirst := newJob("q1", "https://github.com/example/repo.git", "main", "tbeam", "/tmp/q1", now)
-	queuedSecond := newJob("q2", "https://github.com/example/repo.git", "main", "tbeam", "/tmp/q2", now)
+	queuedFirst := newJob("q1", "https://github.com/example/repo.git", "main", "tbeam", BuildOptions{}, "/tmp/q1", now)
+	queuedSecond := newJob("q2", "https://github.com/example/repo.git", "main", "tbeam", BuildOptions{}, "/tmp/q2", now)
 
 	mgr.jobs[runningA.ID] = runningA
 	mgr.jobs[runningB.ID] = runningB

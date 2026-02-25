@@ -36,3 +36,34 @@ func TestResolveDockerHostPath(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveContainerProjectConfigPath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid relative path", func(t *testing.T) {
+		t.Parallel()
+		got, err := resolveContainerProjectConfigPath("platformio.custom.ini", "/workspace/repo")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "/workspace/repo/platformio.custom.ini" {
+			t.Fatalf("unexpected path: %q", got)
+		}
+	})
+
+	t.Run("reject absolute path", func(t *testing.T) {
+		t.Parallel()
+		_, err := resolveContainerProjectConfigPath("/tmp/platformio.ini", "/workspace/repo")
+		if err == nil {
+			t.Fatalf("expected error for absolute path")
+		}
+	})
+
+	t.Run("reject traversal", func(t *testing.T) {
+		t.Parallel()
+		_, err := resolveContainerProjectConfigPath("../platformio.ini", "/workspace/repo")
+		if err == nil {
+			t.Fatalf("expected error for traversal path")
+		}
+	})
+}

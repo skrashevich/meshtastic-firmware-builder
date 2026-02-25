@@ -40,6 +40,8 @@ export default function App() {
   const [captchaRequired, setCaptchaRequired] = useState(true);
   const [devices, setDevices] = useState<string[]>([]);
   const [selectedDevice, setSelectedDevice] = useState("");
+  const [buildFlagsInput, setBuildFlagsInput] = useState("");
+  const [libDepsInput, setLibDepsInput] = useState("");
 
   const [discovering, setDiscovering] = useState(false);
   const [startingBuild, setStartingBuild] = useState(false);
@@ -292,11 +294,31 @@ export default function App() {
       return;
     }
 
+    const buildFlags = parseMultilineValues(buildFlagsInput);
+    const libDeps = parseMultilineValues(libDepsInput);
+
     setStartingBuild(true);
     try {
       const created = hasCaptchaSession
-        ? await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice, undefined, undefined, captchaSessionToken)
-        : await createBuildJob(repoUrl.trim(), ref.trim(), selectedDevice, captcha?.captchaId, captchaAnswer.trim());
+        ? await createBuildJob(
+            repoUrl.trim(),
+            ref.trim(),
+            selectedDevice,
+            buildFlags,
+            libDeps,
+            undefined,
+            undefined,
+            captchaSessionToken,
+          )
+        : await createBuildJob(
+            repoUrl.trim(),
+            ref.trim(),
+            selectedDevice,
+            buildFlags,
+            libDeps,
+            captcha?.captchaId,
+            captchaAnswer.trim(),
+          );
 
       if (created.captchaSessionToken) {
         saveCaptchaSessionToken(created.captchaSessionToken);
@@ -529,6 +551,28 @@ export default function App() {
             ))}
           </div>
 
+          <p className="muted build-options-hint">{t.buildOptionsHint}</p>
+          <div className="build-options-grid">
+            <label>
+              <span>{t.buildFlagsLabel}</span>
+              <textarea
+                value={buildFlagsInput}
+                onChange={(event) => setBuildFlagsInput(event.target.value)}
+                placeholder={t.buildFlagsPlaceholder}
+                rows={3}
+              />
+            </label>
+            <label>
+              <span>{t.libDepsLabel}</span>
+              <textarea
+                value={libDepsInput}
+                onChange={(event) => setLibDepsInput(event.target.value)}
+                placeholder={t.libDepsPlaceholder}
+                rows={3}
+              />
+            </label>
+          </div>
+
           <div className="actions-row">
             <button
               className="primary"
@@ -660,6 +704,13 @@ function formatQueueETA(seconds: number, locale: Locale): string {
     return `${hours}h`;
   }
   return `${totalMinutes}m`;
+}
+
+function parseMultilineValues(raw: string): string[] {
+  return raw
+    .split("\n")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
 }
 
 function collectRefSuggestions(repoRefs: RepoRefsResponse | null): string[] {

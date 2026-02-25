@@ -25,6 +25,11 @@ type Dictionary = {
   discovering: string;
   devicesTitle: string;
   deviceLabel: string;
+  buildFlagsLabel: string;
+  buildFlagsPlaceholder: string;
+  libDepsLabel: string;
+  libDepsPlaceholder: string;
+  buildOptionsHint: string;
   startBuild: string;
   startingBuild: string;
   status: string;
@@ -79,6 +84,11 @@ export const dict: Record<Locale, Dictionary> = {
     discovering: "Поиск устройств...",
     devicesTitle: "Доступные устройства (каталог variants)",
     deviceLabel: "Устройство",
+    buildFlagsLabel: "Дополнительные build_flags",
+    buildFlagsPlaceholder: "По одному значению в строке, например: -DUSER_NAME=\"alice\"",
+    libDepsLabel: "Дополнительные lib_deps",
+    libDepsPlaceholder: "По одному значению в строке, например: bblanchon/ArduinoJson @ ^7",
+    buildOptionsHint: "Опционально: значения добавляются к выбранному env из platformio.ini только для этой сборки",
     startBuild: "Запустить сборку",
     startingBuild: "Запуск...",
     status: "Статус",
@@ -139,6 +149,11 @@ export const dict: Record<Locale, Dictionary> = {
     discovering: "Discovering devices...",
     devicesTitle: "Available devices (variants directory)",
     deviceLabel: "Device",
+    buildFlagsLabel: "Additional build_flags",
+    buildFlagsPlaceholder: "One value per line, for example: -DUSER_NAME=\"alice\"",
+    libDepsLabel: "Additional lib_deps",
+    libDepsPlaceholder: "One value per line, for example: bblanchon/ArduinoJson @ ^7",
+    buildOptionsHint: "Optional: values are appended to the selected env from platformio.ini only for this build",
     startBuild: "Start build",
     startingBuild: "Starting...",
     status: "Status",

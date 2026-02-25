@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
 )
 
-func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string, device string, onLine func(string)) error {
+func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string, device string, projectConfigPath string, onLine func(string)) error {
 	containerProjectPath := "/workspace/repo"
 	containerPlatformIOPath := "/root/.platformio"
 	containerBuildCachePath := "/root/.platformio/build-cache"
@@ -54,9 +55,20 @@ func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string
 		cfg.BuilderImage,
 		"run",
 		"-d", containerProjectPath,
+	}
+
+	if strings.TrimSpace(projectConfigPath) != "" {
+		containerConfigPath, err := resolveContainerProjectConfigPath(projectConfigPath, containerProjectPath)
+		if err != nil {
+			return fmt.Errorf("resolve custom project config path: %w", err)
+		}
+		args = append(args, "-c", containerConfigPath)
+	}
+
+	args = append(args,
 		"-e", device,
 		"-j", strconv.Itoa(cfg.PlatformIOJobs),
-	}
+	)
 
 	if onLine != nil {
 		onLine("$ docker " + strings.Join(args, " "))
@@ -68,6 +80,26 @@ func runBuildInContainer(ctx context.Context, cfg config.Config, repoPath string
 	}
 
 	return nil
+}
+
+func resolveContainerProjectConfigPath(projectConfigPath string, containerProjectPath string) (string, error) {
+	value := strings.TrimSpace(projectConfigPath)
+	if value == "" {
+		return "", errors.New("project config path is required")
+	}
+	if filepath.IsAbs(value) {
+		return "", errors.New("project config path must be relative")
+	}
+
+	cleaned := filepath.Clean(value)
+	if cleaned == "." || cleaned == ".." {
+		return "", errors.New("project config path is invalid")
+	}
+	if strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return "", errors.New("project config path is outside project directory")
+	}
+
+	return filepath.ToSlash(filepath.Join(containerProjectPath, cleaned)), nil
 }
 
 func resolveDockerHostPath(path string, containerRoot string, hostRoot string) (string, error) {

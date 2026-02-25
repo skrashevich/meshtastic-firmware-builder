@@ -15,6 +15,11 @@ var (
 	refPattern         = regexp.MustCompile(`^[A-Za-z0-9._/-]{1,128}$`)
 )
 
+const (
+	maxBuildOptionItems  = 128
+	maxBuildOptionLength = 512
+)
+
 func ValidateRepoURL(raw string) error {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -97,9 +102,71 @@ func ValidateDeviceSelection(raw string) error {
 	return nil
 }
 
+func NormalizeBuildOptions(raw BuildOptions) (BuildOptions, error) {
+	buildFlags, err := normalizeBuildOptionValues("buildFlags", raw.BuildFlags)
+	if err != nil {
+		return BuildOptions{}, err
+	}
+
+	libDeps, err := normalizeBuildOptionValues("libDeps", raw.LibDeps)
+	if err != nil {
+		return BuildOptions{}, err
+	}
+
+	for _, flag := range buildFlags {
+		if strings.HasPrefix(flag, "!") {
+			return BuildOptions{}, errors.New("buildFlags values must not start with '!' command syntax")
+		}
+	}
+
+	return BuildOptions{
+		BuildFlags: buildFlags,
+		LibDeps:    libDeps,
+	}, nil
+}
+
+func normalizeBuildOptionValues(field string, items []string) ([]string, error) {
+	if len(items) > maxBuildOptionItems {
+		return nil, fmt.Errorf("%s supports up to %d entries", field, maxBuildOptionItems)
+	}
+
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		value := strings.TrimSpace(item)
+		if value == "" {
+			continue
+		}
+		if len(value) > maxBuildOptionLength {
+			return nil, fmt.Errorf("%s entry exceeds %d characters", field, maxBuildOptionLength)
+		}
+		if strings.ContainsAny(value, "\r\n") {
+			return nil, fmt.Errorf("%s entries must be single-line values", field)
+		}
+		if hasControlChars(value) {
+			return nil, fmt.Errorf("%s entries contain unsupported control characters", field)
+		}
+		result = append(result, value)
+	}
+
+	if len(result) > maxBuildOptionItems {
+		return nil, fmt.Errorf("%s supports up to %d entries", field, maxBuildOptionItems)
+	}
+
+	return result, nil
+}
+
 func hasWhitespace(value string) bool {
 	for _, char := range value {
 		if char == ' ' || char == '\t' || char == '\n' || char == '\r' {
+			return true
+		}
+	}
+	return false
+}
+
+func hasControlChars(value string) bool {
+	for _, char := range value {
+		if char < 32 && char != '\t' {
 			return true
 		}
 	}

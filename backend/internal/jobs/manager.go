@@ -91,7 +91,7 @@ func (m *Manager) DiscoverRefs(ctx context.Context, repoURL string) (RepoRefs, e
 	return refs, nil
 }
 
-func (m *Manager) CreateJob(repoURL string, ref string, device string) (State, error) {
+func (m *Manager) CreateJob(repoURL string, ref string, device string, options BuildOptions) (State, error) {
 	if err := ValidateRepoURL(repoURL); err != nil {
 		return State{}, err
 	}
@@ -102,13 +102,18 @@ func (m *Manager) CreateJob(repoURL string, ref string, device string) (State, e
 		return State{}, err
 	}
 
+	normalizedOptions, err := NormalizeBuildOptions(options)
+	if err != nil {
+		return State{}, err
+	}
+
 	jobID, err := generateJobID()
 	if err != nil {
 		return State{}, err
 	}
 
 	workspace := filepath.Join(m.cfg.JobsRootPath, jobID)
-	job := newJob(jobID, repoURL, ref, device, workspace, m.now())
+	job := newJob(jobID, repoURL, ref, device, normalizedOptions, workspace, m.now())
 
 	m.mu.Lock()
 	m.jobs[jobID] = job
@@ -221,7 +226,19 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
-	if err := runBuildInContainer(ctx, m.cfg, repoPath, project.EnvName, onLog); err != nil {
+	buildEnvName := project.EnvName
+	projectConfigPath := ""
+	buildOptions := BuildOptions{BuildFlags: job.BuildFlags, LibDeps: job.LibDeps}
+	if !buildOptions.IsEmpty() {
+		projectConfigPath, buildEnvName, err = prepareBuildConfigOverrides(repoPath, project.EnvName, job.ID, buildOptions)
+		if err != nil {
+			m.failJob(job, err)
+			return
+		}
+		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("applied custom build options: build_flags=%d, lib_deps=%d", len(buildOptions.BuildFlags), len(buildOptions.LibDeps)))
+	}
+
+	if err := runBuildInContainer(ctx, m.cfg, repoPath, buildEnvName, projectConfigPath, onLog); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			m.failJob(job, fmt.Errorf("build timeout reached after %s", m.cfg.BuildTimeout))
 			return
@@ -234,7 +251,7 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
-	artifacts, err := collectArtifacts(repoPath, project.EnvName)
+	artifacts, err := collectArtifacts(repoPath, buildEnvName)
 	if err != nil {
 		m.failJob(job, err)
 		return

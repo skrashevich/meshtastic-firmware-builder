@@ -9,7 +9,7 @@ func TestJobStateTransitions(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 2, 24, 10, 0, 0, 0, time.UTC)
-	job := newJob("abc", "https://example.com/repo.git", "main", "tbeam", "/tmp/workspace", now)
+	job := newJob("abc", "https://example.com/repo.git", "main", "tbeam", BuildOptions{}, "/tmp/workspace", now)
 
 	if job.snapshot().Status != StatusQueued {
 		t.Fatalf("expected queued status")

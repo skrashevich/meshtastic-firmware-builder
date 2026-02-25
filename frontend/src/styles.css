@@ -216,7 +216,8 @@ body {
   font-weight: 600;
 }
 
-input:not([type="radio"]) {
+input:not([type="radio"]),
+textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -226,7 +227,16 @@ input:not([type="radio"]) {
   background: #ffffff;
 }
 
+textarea {
+  resize: vertical;
+  min-height: 84px;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 input:focus,
+textarea:focus,
 button:focus,
 a:focus {
   outline: 3px solid rgba(15, 143, 127, 0.28);
@@ -340,6 +350,17 @@ a:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.build-options-hint {
+  margin-top: 14px;
+}
+
+.build-options-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 button {
@@ -510,5 +531,9 @@ button {
   .site-footer {
     flex-direction: column;
     gap: 6px;
+  }
+
+  .build-options-grid {
+    grid-template-columns: 1fr;
   }
 }

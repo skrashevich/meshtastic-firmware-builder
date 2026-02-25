@@ -69,3 +69,35 @@ func TestValidateDeviceAndRef(t *testing.T) {
 		t.Fatalf("expected invalid device selection")
 	}
 }
+
+func TestNormalizeBuildOptions(t *testing.T) {
+	t.Parallel()
+
+	options, err := NormalizeBuildOptions(BuildOptions{
+		BuildFlags: []string{"  -DTEST=1  ", "", "-Wall"},
+		LibDeps:    []string{"  bblanchon/ArduinoJson @ ^7  ", ""},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(options.BuildFlags) != 2 {
+		t.Fatalf("unexpected build flags length: %d", len(options.BuildFlags))
+	}
+	if options.BuildFlags[0] != "-DTEST=1" {
+		t.Fatalf("unexpected first build flag: %q", options.BuildFlags[0])
+	}
+	if len(options.LibDeps) != 1 {
+		t.Fatalf("unexpected lib deps length: %d", len(options.LibDeps))
+	}
+
+	_, err = NormalizeBuildOptions(BuildOptions{BuildFlags: []string{"!echo hacked"}})
+	if err == nil {
+		t.Fatalf("expected validation error for dynamic command syntax")
+	}
+
+	_, err = NormalizeBuildOptions(BuildOptions{LibDeps: []string{"line1\nline2"}})
+	if err == nil {
+		t.Fatalf("expected validation error for multi-line value")
+	}
+}

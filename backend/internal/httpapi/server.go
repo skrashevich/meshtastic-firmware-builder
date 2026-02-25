@@ -197,7 +197,10 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 		return
 	}
 
-	state, err := s.manager.CreateJob(req.RepoURL, req.Ref, req.Device)
+	state, err := s.manager.CreateJob(req.RepoURL, req.Ref, req.Device, jobs.BuildOptions{
+		BuildFlags: req.BuildFlags,
+		LibDeps:    req.LibDeps,
+	})
 	if err != nil {
 		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_JOB", err.Error(), nil)
 		return
@@ -418,6 +421,8 @@ func (s *Server) presentState(state jobs.State) stateResponse {
 		RepoURL:         state.RepoURL,
 		Ref:             state.Ref,
 		Device:          state.Device,
+		BuildFlags:      state.BuildFlags,
+		LibDeps:         state.LibDeps,
 		Status:          state.Status,
 		QueuePosition:   state.QueuePosition,
 		QueueETASeconds: state.QueueETASeconds,
@@ -539,12 +544,14 @@ type repoRefsResponse struct {
 }
 
 type createJobRequest struct {
-	RepoURL             string `json:"repoUrl"`
-	Ref                 string `json:"ref"`
-	Device              string `json:"device"`
-	CaptchaID           string `json:"captchaId,omitempty"`
-	CaptchaAnswer       string `json:"captchaAnswer,omitempty"`
-	CaptchaSessionToken string `json:"captchaSessionToken,omitempty"`
+	RepoURL             string   `json:"repoUrl"`
+	Ref                 string   `json:"ref"`
+	Device              string   `json:"device"`
+	BuildFlags          []string `json:"buildFlags,omitempty"`
+	LibDeps             []string `json:"libDeps,omitempty"`
+	CaptchaID           string   `json:"captchaId,omitempty"`
+	CaptchaAnswer       string   `json:"captchaAnswer,omitempty"`
+	CaptchaSessionToken string   `json:"captchaSessionToken,omitempty"`
 }
 
 type captchaResponse struct {
@@ -568,6 +575,8 @@ type stateResponse struct {
 	RepoURL             string         `json:"repoUrl"`
 	Ref                 string         `json:"ref,omitempty"`
 	Device              string         `json:"device"`
+	BuildFlags          []string       `json:"buildFlags,omitempty"`
+	LibDeps             []string       `json:"libDeps,omitempty"`
 	Status              jobs.Status    `json:"status"`
 	CaptchaSessionToken string         `json:"captchaSessionToken,omitempty"`
 	QueuePosition       *int           `json:"queuePosition,omitempty"`
