@@ -1,4 +1,20 @@
+networks:
+  proxy:
+    driver: bridge
+
 services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    environment:
+      CONTAINERS: 1
+      POST: 1
+      DELETE: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - proxy
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -16,12 +32,17 @@ services:
       APP_REQUIRE_CAPTCHA: "${APP_REQUIRE_CAPTCHA:-1}"
       APP_DOCKER_HOST_WORKDIR: "${APP_DOCKER_HOST_WORKDIR:-${PWD}/build-workdir}"
       APP_DOCKER_HOST_CACHE_DIR: "${APP_DOCKER_HOST_CACHE_DIR:-${PWD}/build-workdir/platformio-cache}"
+      DOCKER_HOST: "tcp://docker-socket-proxy:2375"
       APP_NODE_BASE_URL: "${APP_NODE_BASE_URL:-}"
       APP_PROXY_BACKEND_URLS: "${APP_PROXY_BACKEND_URLS:-}"
       APP_PROXY_TIMEOUT_SECONDS: "${APP_PROXY_TIMEOUT_SECONDS:-10}"
     volumes:
       - ${APP_DOCKER_HOST_WORKDIR:-${PWD}/build-workdir}:/app/build-workdir
-      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - default
+      - proxy
+    depends_on:
+      - docker-socket-proxy
     ports:
       - "8081:8080"
 
