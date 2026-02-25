@@ -78,14 +78,32 @@ docker build -t meshtastic-firmware-builder:latest .
 
 ### 3) Run container
 
+The recommended approach uses a [Tecnativa docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) sidecar so the application container never receives raw Docker socket access — only the `containers/*` API endpoints it actually needs are exposed.
+
 ```bash
+# Create an isolated network for the proxy
+docker network create builder-proxy
+
+# Start the Docker socket proxy (whitelists containers API only)
+docker run -d \
+  --name docker-socket-proxy \
+  --network builder-proxy \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e CONTAINERS=1 \
+  -e POST=1 \
+  -e DELETE=1 \
+  --restart unless-stopped \
+  tecnativa/docker-socket-proxy
+
+# Start the all-in-one container (no raw socket mount)
 docker run -d \
   --name meshtastic-builder \
+  --network builder-proxy \
   -p 80:80 \
-  -v /var/run/docker.sock:/var/run/docker.sock \
   -v ./build-workdir:/app/build-workdir \
   -e APP_CONCURRENT_BUILDS=1 \
   -e APP_DOCKER_HOST_WORKDIR=/app/build-workdir \
+  -e DOCKER_HOST=tcp://docker-socket-proxy:2375 \
   meshtastic-firmware-builder:latest
 ```
 
@@ -93,22 +111,25 @@ Access the application at `http://localhost`.
 
 **Why this works:**
 - **Port 80**: Nginx serves frontend (React) and proxies `/api/*` to backend (port 8080 internally)
-- **Docker socket**: Backend launches PlatformIO builder containers for firmware builds
+- **docker-socket-proxy**: Sits between the application and the Docker daemon; only `containers/create`, `containers/start`, and related container lifecycle calls are permitted — all other Docker API endpoints are blocked
 - **build-workdir volume**: Persisted storage for cloned repositories, build artifacts, and PlatformIO cache
+
+> **Trusted / local-only setups**: If you fully control the host and do not need the extra security boundary, you can skip the proxy and mount the socket directly with `-v /var/run/docker.sock:/var/run/docker.sock` (the default `DOCKER_HOST=unix:///var/run/docker.sock` will be used automatically).
 
 ### 4) Configure via environment variables
 
-Override defaults:
+Override defaults (using the recommended proxy setup):
 
 ```bash
 docker run -d \
   --name meshtastic-builder \
+  --network builder-proxy \
   -p 80:80 \
-  -v /var/run/docker.sock:/var/run/docker.sock \
   -v ./build-workdir:/app/build-workdir \
   -e APP_CONCURRENT_BUILDS=2 \
   -e APP_BUILD_TIMEOUT_MINUTES=120 \
   -e APP_RETENTION_HOURS=24 \
+  -e DOCKER_HOST=tcp://docker-socket-proxy:2375 \
   meshtastic-firmware-builder:latest
 ```
 

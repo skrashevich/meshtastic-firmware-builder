@@ -110,7 +110,8 @@ ENV APP_PORT=8080 \
     APP_ALLOWED_ORIGINS=http://localhost \
     APP_MAX_LOG_LINES=20000 \
     APP_BUILD_RATE_LIMIT_PER_MINUTE=10 \
-    APP_REQUIRE_CAPTCHA=1
+    APP_REQUIRE_CAPTCHA=1 \
+    DOCKER_HOST=unix:///var/run/docker.sock
 
 # Use supervisord to run both nginx and backend
 # supervisord runs as root to manage nginx, backend runs as appuser (see supervisord.conf)
