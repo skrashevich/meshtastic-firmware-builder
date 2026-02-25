@@ -20,7 +20,7 @@ import { Locale, dict } from "./i18n";
 
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 const captchaSessionStorageKey = "mfb.captchaSessionToken";
-const defaultRepoURL = "https://github.com/skrashevich/meshtastic-firmware";
+const defaultRepoURL = "https://github.com/meshtastic/firmware";
 
 export default function App() {
   const supportChatUrl = "https://t.me/meshtastic_firmware_builder";
