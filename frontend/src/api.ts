@@ -67,6 +67,15 @@ export interface BackendRouteInfo {
   proxied: boolean;
 }
 
+export type BackendNodeHealthStatus = "alive" | "degraded";
+
+export interface BackendNodeHealth {
+  baseUrl: string;
+  status: BackendNodeHealthStatus;
+  isCurrentBackend: boolean;
+  isCurrentGateway: boolean;
+}
+
 const DEFAULT_API_BASE_URL = "http://localhost:8080";
 const API_BASE_URLS = resolveApiBaseUrls(import.meta.env.VITE_API_BASE_URLS, import.meta.env.VITE_API_BASE_URL);
 const BACKEND_HEALTH_CHECK_PATH = "/api/healthz";
@@ -87,6 +96,7 @@ interface BackendHealthState {
 }
 
 type BackendResolvedHandler = (route: BackendRouteInfo) => void;
+type BackendHealthListener = () => void;
 
 let nextApiBaseUrlIndex = 0;
 let currentGatewayBaseUrl = API_BASE_URLS[0];
@@ -101,6 +111,8 @@ const backendHealthStates = new Map<string, BackendHealthState>(
     },
   ]),
 );
+
+const backendHealthListeners = new Set<BackendHealthListener>();
 
 export function pickApiBaseUrl(): string {
   const roundRobinOrder = buildRoundRobinOrder();
@@ -141,6 +153,31 @@ export function routedApiUrl(path: string, backendBaseUrl?: string, gatewayBaseU
   }
 
   return appendTargetBackendQuery(apiUrl(path, resolvedGatewayBaseUrl), targetBackendBaseUrl);
+}
+
+export function subscribeBackendHealth(listener: BackendHealthListener): () => void {
+  backendHealthListeners.add(listener);
+  return () => {
+    backendHealthListeners.delete(listener);
+  };
+}
+
+export function getBackendNodeHealthSnapshot(
+  currentBackendBaseUrl?: string,
+  currentGatewayBaseUrl?: string,
+): BackendNodeHealth[] {
+  const resolvedCurrentBackend = parseApiBaseUrl(currentBackendBaseUrl ?? "") ?? "";
+  const resolvedCurrentGateway = parseApiBaseUrl(currentGatewayBaseUrl ?? "") ?? "";
+
+  return API_BASE_URLS.map((baseUrl) => {
+    const backendState = getBackendHealthState(baseUrl);
+    return {
+      baseUrl,
+      status: backendState.healthy ? "alive" : "degraded",
+      isCurrentBackend: resolvedCurrentBackend !== "" && resolvedCurrentBackend === baseUrl,
+      isCurrentGateway: resolvedCurrentGateway !== "" && resolvedCurrentGateway === baseUrl,
+    };
+  });
 }
 
 export async function discoverDevices(
@@ -472,16 +509,29 @@ function getBackendHealthState(backendBaseUrl: string): BackendHealthState {
 
 function markBackendHealthy(backendBaseUrl: string, nowMs = Date.now()): void {
   const backendState = getBackendHealthState(backendBaseUrl);
+  const changed = !backendState.healthy || backendState.unavailableUntilMs !== 0;
   backendState.healthy = true;
   backendState.checkedAtMs = nowMs;
   backendState.unavailableUntilMs = 0;
+
+  if (changed) {
+    emitBackendHealthChanged();
+  }
 }
 
 function markBackendUnavailable(backendBaseUrl: string, nowMs = Date.now()): void {
   const backendState = getBackendHealthState(backendBaseUrl);
+  const previousUnavailableUntilMs = backendState.unavailableUntilMs;
+  const nextUnavailableUntilMs = nowMs + BACKEND_UNAVAILABLE_COOLDOWN_MS;
+  const changed = backendState.healthy || previousUnavailableUntilMs !== nextUnavailableUntilMs;
+
   backendState.healthy = false;
   backendState.checkedAtMs = nowMs;
-  backendState.unavailableUntilMs = nowMs + BACKEND_UNAVAILABLE_COOLDOWN_MS;
+  backendState.unavailableUntilMs = nextUnavailableUntilMs;
+
+  if (changed) {
+    emitBackendHealthChanged();
+  }
 }
 
 async function probeGatewayHealth(gatewayBaseUrl: string): Promise<boolean> {
@@ -536,6 +586,12 @@ function resolveBackendRouteInfo(response: Response, targetBackendBaseUrl: strin
     gatewayBaseUrl: proxiedVia,
     proxied: servedBy !== proxiedVia,
   };
+}
+
+function emitBackendHealthChanged(): void {
+  for (const listener of backendHealthListeners) {
+    listener();
+  }
 }
 
 function throwIfAborted(signal?: AbortSignal | null): void {
