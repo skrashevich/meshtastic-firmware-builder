@@ -59,3 +59,30 @@ func runGit(ctx context.Context, onLine func(string), args ...string) error {
 	}
 	return nil
 }
+
+func resolveRepositoryCommit(ctx context.Context, repositoryPath string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", repositoryPath, "rev-parse", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("resolve repository commit: %w", err)
+	}
+
+	commit := strings.ToLower(strings.TrimSpace(string(output)))
+	if !isValidCommitHash(commit) {
+		return "", fmt.Errorf("invalid commit hash %q", commit)
+	}
+	return commit, nil
+}
+
+func isValidCommitHash(value string) bool {
+	if len(value) < 7 || len(value) > 64 {
+		return false
+	}
+
+	for _, char := range value {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
+			return false
+		}
+	}
+	return true
+}

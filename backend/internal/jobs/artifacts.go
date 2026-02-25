@@ -83,9 +83,13 @@ func collectArtifacts(repoPath string, device string) ([]Artifact, error) {
 		return artifacts[i].RelativePath < artifacts[j].RelativePath
 	})
 
+	assignArtifactIDs(artifacts)
+
+	return artifacts, nil
+}
+
+func assignArtifactIDs(artifacts []Artifact) {
 	for index := range artifacts {
 		artifacts[index].ID = strconv.Itoa(index + 1)
 	}
-
-	return artifacts, nil
 }

@@ -12,6 +12,7 @@ import (
 const (
 	defaultPort                = 8080
 	defaultWorkDir             = "../build-workdir"
+	defaultFirmwareCacheDir    = "firmware-cache"
 	defaultConcurrentBuilds    = 1
 	defaultRetentionHours      = 168
 	defaultBuildTimeoutMinutes = 60
@@ -41,6 +42,7 @@ type Config struct {
 	CleanupInterval   time.Duration
 	DiscoveryRootPath string
 	JobsRootPath      string
+	FirmwareCachePath string
 }
 
 func Load() (Config, error) {
@@ -113,6 +115,14 @@ func Load() (Config, error) {
 
 	discoveryRoot := filepath.Join(workDir, "discovery")
 	jobsRoot := filepath.Join(workDir, "jobs")
+	firmwareCachePath := os.Getenv("APP_FIRMWARE_CACHE_DIR")
+	if strings.TrimSpace(firmwareCachePath) == "" {
+		firmwareCachePath = filepath.Join(workDir, defaultFirmwareCacheDir)
+	}
+	firmwareCachePath, err = filepath.Abs(firmwareCachePath)
+	if err != nil {
+		return Config{}, fmt.Errorf("resolve APP_FIRMWARE_CACHE_DIR: %w", err)
+	}
 
 	platformIOCache := os.Getenv("APP_PLATFORMIO_CACHE_DIR")
 	if strings.TrimSpace(platformIOCache) == "" {
@@ -148,6 +158,9 @@ func Load() (Config, error) {
 	if err := ensureDir(platformIOCache); err != nil {
 		return Config{}, err
 	}
+	if err := ensureDir(firmwareCachePath); err != nil {
+		return Config{}, err
+	}
 
 	builderImage := strings.TrimSpace(os.Getenv("APP_BUILDER_IMAGE"))
 	if builderImage == "" {
@@ -177,6 +190,7 @@ func Load() (Config, error) {
 		CleanupInterval:   time.Hour,
 		DiscoveryRootPath: discoveryRoot,
 		JobsRootPath:      jobsRoot,
+		FirmwareCachePath: firmwareCachePath,
 	}, nil
 }
 

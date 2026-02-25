@@ -212,6 +212,12 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
+	commitHash, err := resolveRepositoryCommit(ctx, repoPath)
+	if err != nil {
+		m.failJob(job, err)
+		return
+	}
+
 	project, err := findVariantProject(repoPath, job.Device)
 	if err != nil {
 		m.failJob(job, err)
@@ -229,6 +235,24 @@ func (m *Manager) executeJob(job *Job) {
 	buildEnvName := project.EnvName
 	projectConfigPath := ""
 	buildOptions := BuildOptions{BuildFlags: job.BuildFlags, LibDeps: job.LibDeps}
+
+	cacheKey, err := buildFirmwareCacheKey(job.RepoURL, commitHash, project.EnvName, buildOptions)
+	if err != nil {
+		m.failJob(job, err)
+		return
+	}
+
+	cachedArtifacts, cacheHit, cacheErr := loadArtifactsFromFirmwareCache(m.cfg.FirmwareCachePath, cacheKey)
+	if cacheErr != nil {
+		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("cache read failed for %s: %v", shortCommit(commitHash), cacheErr))
+	} else if cacheHit {
+		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("cache hit for commit %s, reusing %d artifacts", shortCommit(commitHash), len(cachedArtifacts)))
+		job.markSuccess(m.now(), cachedArtifacts)
+		return
+	} else {
+		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("cache miss for commit %s, running build", shortCommit(commitHash)))
+	}
+
 	if !buildOptions.IsEmpty() {
 		projectConfigPath, buildEnvName, err = prepareBuildConfigOverrides(repoPath, project.EnvName, job.ID, buildOptions)
 		if err != nil {
@@ -255,6 +279,12 @@ func (m *Manager) executeJob(job *Job) {
 	if err != nil {
 		m.failJob(job, err)
 		return
+	}
+
+	if err := storeArtifactsInFirmwareCache(m.cfg.FirmwareCachePath, cacheKey, artifacts); err != nil {
+		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("cache write failed for %s: %v", shortCommit(commitHash), err))
+	} else {
+		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("stored build artifacts in cache for commit %s", shortCommit(commitHash)))
 	}
 
 	job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("build completed, artifacts: %d", len(artifacts)))
