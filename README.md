@@ -221,6 +221,7 @@ Build speed notes:
 - Artifacts are served only from files registered for that job
 - Build creation endpoint has per-client in-memory rate limiting
 - Build creation endpoint supports captcha once per browser session (`captchaSessionToken`) when captcha is enabled
+- Docker socket is exposed to the backend via a [Tecnativa docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) that whitelists only the `containers/create`, `containers/start`, and `containers/{id}` API endpoints (POST and DELETE methods); the raw Docker socket is never mounted into the backend container
 
 ## Testing
 
