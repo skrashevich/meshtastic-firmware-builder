@@ -1,11 +1,11 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   ArtifactItem,
+  BackendRouteInfo,
   CaptchaChallenge,
   JobState,
   JobStatus,
   RepoRefsResponse,
-  apiUrl,
   createBuildJob,
   createLogStream,
   discoverDevices,
@@ -14,6 +14,7 @@ import {
   getArtifacts,
   getJob,
   getServerHealth,
+  routedApiUrl,
 } from "./api";
 import { Locale, dict } from "./i18n";
 
@@ -48,6 +49,7 @@ export default function App() {
 
   const [job, setJob] = useState<JobState | null>(null);
   const [jobBackendBaseUrl, setJobBackendBaseUrl] = useState("");
+  const [gatewayBackendBaseUrl, setGatewayBackendBaseUrl] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -90,7 +92,7 @@ export default function App() {
       setRefsLoading(true);
       setRefsError("");
       try {
-        const refsData = await discoverRepoRefs(trimmedRepo, controller.signal);
+        const refsData = await discoverRepoRefs(trimmedRepo, controller.signal, undefined, saveCaptchaBackendRoute);
         setRepoRefs(refsData);
 
         const repoChanged = refsRepoRef.current !== trimmedRepo;
@@ -126,11 +128,12 @@ export default function App() {
     }
     if (storedSessionBackend) {
       setCaptchaBackendBaseUrl(storedSessionBackend);
+      setGatewayBackendBaseUrl(storedSessionBackend);
     }
 
     const bootstrap = async () => {
       try {
-        const health = await getServerHealth(storedSessionBackend || undefined, saveCaptchaBackendBaseUrl);
+        const health = await getServerHealth(storedSessionBackend || undefined, saveCaptchaBackendRoute);
         if (cancelled) {
           return;
         }
@@ -191,6 +194,15 @@ export default function App() {
     window.sessionStorage.setItem(captchaBackendStorageKey, normalized);
   }
 
+  function saveGatewayBackendBaseUrl(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
+      return;
+    }
+
+    setGatewayBackendBaseUrl((current) => (current === normalized ? current : normalized));
+  }
+
   function saveJobBackendBaseUrl(value: string) {
     const normalized = value.trim();
     if (!normalized) {
@@ -198,6 +210,21 @@ export default function App() {
     }
 
     setJobBackendBaseUrl((current) => (current === normalized ? current : normalized));
+  }
+
+  function saveCaptchaBackendRoute(route: BackendRouteInfo) {
+    saveGatewayBackendBaseUrl(route.gatewayBaseUrl);
+    saveCaptchaBackendBaseUrl(route.backendBaseUrl);
+  }
+
+  function saveJobBackendRoute(route: BackendRouteInfo) {
+    saveGatewayBackendBaseUrl(route.gatewayBaseUrl);
+    saveJobBackendBaseUrl(route.backendBaseUrl);
+  }
+
+  function saveCaptchaAndJobBackendRoute(route: BackendRouteInfo) {
+    saveCaptchaBackendRoute(route);
+    saveJobBackendRoute(route);
   }
 
   function clearCaptchaSessionToken() {
@@ -216,7 +243,7 @@ export default function App() {
     try {
       const challenge = await getCaptchaChallenge(
         preferredBackendBaseUrl || captchaBackendBaseUrl || undefined,
-        saveCaptchaBackendBaseUrl,
+        saveCaptchaBackendRoute,
       );
 
       if (challenge.captchaRequired === false) {
@@ -249,15 +276,15 @@ export default function App() {
     const intervalId = window.setInterval(async () => {
       try {
         let currentBackendBaseUrl = jobBackendBaseUrl;
-        const rememberBackend = (backendBaseUrl: string) => {
-          currentBackendBaseUrl = backendBaseUrl;
-          saveJobBackendBaseUrl(backendBaseUrl);
+        const rememberBackendRoute = (route: BackendRouteInfo) => {
+          currentBackendBaseUrl = route.backendBaseUrl;
+          saveJobBackendRoute(route);
         };
 
-        const current = await getJob(job.id, currentBackendBaseUrl || undefined, rememberBackend);
+        const current = await getJob(job.id, currentBackendBaseUrl || undefined, rememberBackendRoute);
         setJob(current);
         if (current.status === "success") {
-          const files = await getArtifacts(current.id, currentBackendBaseUrl || undefined, rememberBackend);
+          const files = await getArtifacts(current.id, currentBackendBaseUrl || undefined, rememberBackendRoute);
           setArtifacts(files);
         }
         if (finalStatuses.has(current.status)) {
@@ -294,9 +321,9 @@ export default function App() {
     try {
       const preferredBackend = captchaBackendBaseUrl || undefined;
       let resolvedBackendBaseUrl = preferredBackend ?? "";
-      const rememberCaptchaBackend = (backendBaseUrl: string) => {
-        resolvedBackendBaseUrl = backendBaseUrl;
-        saveCaptchaBackendBaseUrl(backendBaseUrl);
+      const rememberCaptchaBackend = (route: BackendRouteInfo) => {
+        resolvedBackendBaseUrl = route.backendBaseUrl;
+        saveCaptchaBackendRoute(route);
       };
 
       const result = hasCaptchaSession
@@ -362,10 +389,9 @@ export default function App() {
     try {
       const preferredBackend = captchaBackendBaseUrl || undefined;
       let resolvedBackendBaseUrl = preferredBackend ?? "";
-      const rememberBuildBackend = (backendBaseUrl: string) => {
-        resolvedBackendBaseUrl = backendBaseUrl;
-        saveCaptchaBackendBaseUrl(backendBaseUrl);
-        saveJobBackendBaseUrl(backendBaseUrl);
+      const rememberBuildBackend = (route: BackendRouteInfo) => {
+        resolvedBackendBaseUrl = route.backendBaseUrl;
+        saveCaptchaAndJobBackendRoute(route);
       };
 
       const created = hasCaptchaSession
@@ -414,7 +440,7 @@ export default function App() {
   function openStream(jobId: string, backendBaseUrl?: string) {
     closeStream();
 
-    const stream = createLogStream(jobId, backendBaseUrl, saveJobBackendBaseUrl);
+    const stream = createLogStream(jobId, backendBaseUrl, saveJobBackendRoute);
     stream.addEventListener("log", (event) => {
       const message = event as MessageEvent<string>;
       setLogs((current) => [...current, message.data]);
@@ -437,6 +463,20 @@ export default function App() {
   }
 
   const statusLabel = job ? t.statuses[job.status] ?? job.status : "-";
+  const activeBackendBaseUrl = (jobBackendBaseUrl || captchaBackendBaseUrl || "").trim();
+  const activeGatewayBaseUrl = (gatewayBackendBaseUrl || activeBackendBaseUrl || "").trim();
+  const backendLabel = activeBackendBaseUrl ? formatBackendEndpoint(activeBackendBaseUrl) : t.backendUnknown;
+  const gatewayLabel = activeGatewayBaseUrl ? formatBackendEndpoint(activeGatewayBaseUrl) : t.backendUnknown;
+  const backendIsProxied =
+    activeBackendBaseUrl !== "" &&
+    activeGatewayBaseUrl !== "" &&
+    activeBackendBaseUrl !== activeGatewayBaseUrl;
+  const backendRouteLabel =
+    activeBackendBaseUrl === ""
+      ? ""
+      : backendIsProxied
+        ? t.backendVia.replace("{gateway}", gatewayLabel)
+        : t.backendDirect;
   const queueNote =
     job?.status === "queued"
       ? typeof job.queuePosition === "number" && job.queuePosition > 0
@@ -600,9 +640,15 @@ export default function App() {
         <section className="panel reveal-2">
           <div className="panel-head">
             <h2>{t.devicesTitle}</h2>
-            <span className="status-chip">
-              {t.status}: <strong>{statusLabel}</strong>
-            </span>
+            <div className="status-chips">
+              <span className="status-chip">
+                {t.status}: <strong>{statusLabel}</strong>
+              </span>
+              <span className={backendIsProxied ? "status-chip backend-chip proxied" : "status-chip backend-chip"}>
+                {t.backendNode}: <strong>{backendLabel}</strong>
+                {backendRouteLabel ? <span className="backend-route-note">{backendRouteLabel}</span> : null}
+              </span>
+            </div>
           </div>
 
           <div className="devices-grid">
@@ -670,7 +716,15 @@ export default function App() {
             <ul className="artifacts-list">
               {artifacts.map((artifact) => (
                 <li key={artifact.id}>
-                  <a href={apiUrl(artifact.downloadUrl, jobBackendBaseUrl || undefined)} target="_blank" rel="noreferrer">
+                  <a
+                    href={routedApiUrl(
+                      artifact.downloadUrl,
+                      jobBackendBaseUrl || undefined,
+                      gatewayBackendBaseUrl || undefined,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {artifact.relativePath}
                   </a>
                   <span>{formatSize(artifact.size)}</span>
@@ -752,6 +806,20 @@ function formatQueueETA(seconds: number, locale: Locale): string {
     return `${hours}h`;
   }
   return `${totalMinutes}m`;
+}
+
+function formatBackendEndpoint(value: string): string {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return "-";
+  }
+
+  try {
+    const parsedValue = new URL(trimmedValue);
+    return parsedValue.host;
+  } catch {
+    return trimmedValue;
+  }
 }
 
 function collectRefSuggestions(repoRefs: RepoRefsResponse | null): string[] {

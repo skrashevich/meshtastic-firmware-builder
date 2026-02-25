@@ -28,6 +28,10 @@ type Dictionary = {
   startBuild: string;
   startingBuild: string;
   status: string;
+  backendNode: string;
+  backendUnknown: string;
+  backendVia: string;
+  backendDirect: string;
   logs: string;
   artifacts: string;
   noArtifacts: string;
@@ -82,6 +86,10 @@ export const dict: Record<Locale, Dictionary> = {
     startBuild: "Запустить сборку",
     startingBuild: "Запуск...",
     status: "Статус",
+    backendNode: "Бэкенд",
+    backendUnknown: "не определен",
+    backendVia: "через {gateway}",
+    backendDirect: "напрямую",
     logs: "Логи сборки",
     artifacts: "Файлы прошивки",
     noArtifacts: "Файлы пока недоступны",
@@ -142,6 +150,10 @@ export const dict: Record<Locale, Dictionary> = {
     startBuild: "Start build",
     startingBuild: "Starting...",
     status: "Status",
+    backendNode: "Backend",
+    backendUnknown: "unknown",
+    backendVia: "via {gateway}",
+    backendDirect: "direct",
     logs: "Build logs",
     artifacts: "Firmware files",
     noArtifacts: "No files available yet",
