@@ -61,7 +61,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet && r.URL.Path == "/api/healthz" {
-		s.writeSuccess(w, http.StatusOK, requestID, map[string]string{"status": "ok"})
+		s.writeSuccess(w, http.StatusOK, requestID, healthResponse{Status: "ok", CaptchaRequired: s.cfg.RequireCaptcha})
 		return
 	}
 
@@ -100,15 +100,28 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 		return
 	}
 
-	if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
-		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
-		return
-	}
+	captchaSessionToken := ""
+	if s.cfg.RequireCaptcha {
+		captchaSessionToken = strings.TrimSpace(req.CaptchaSessionToken)
+		if captchaSessionToken != "" {
+			if err := s.validateCaptchaSession(r.RemoteAddr, captchaSessionToken); err != nil {
+				captchaSessionToken = ""
+			}
+		}
 
-	sessionToken, err := s.createCaptchaSession(r.RemoteAddr)
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_SESSION_FAILED", err.Error(), nil)
-		return
+		if captchaSessionToken == "" {
+			if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
+				s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
+				return
+			}
+
+			issuedSessionToken, err := s.createCaptchaSession(r.RemoteAddr)
+			if err != nil {
+				s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_SESSION_FAILED", err.Error(), nil)
+				return
+			}
+			captchaSessionToken = issuedSessionToken
+		}
 	}
 
 	devices, err := s.manager.Discover(r.Context(), req.RepoURL, req.Ref)
@@ -121,7 +134,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 		RepoURL:             req.RepoURL,
 		Ref:                 req.Ref,
 		Devices:             devices,
-		CaptchaSessionToken: sessionToken,
+		CaptchaSessionToken: captchaSessionToken,
 	}
 	s.writeSuccess(w, http.StatusOK, requestID, data)
 }
@@ -155,25 +168,28 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 		return
 	}
 
-	captchaSessionToken := strings.TrimSpace(req.CaptchaSessionToken)
-	if captchaSessionToken != "" {
-		if err := s.validateCaptchaSession(r.RemoteAddr, captchaSessionToken); err != nil {
-			captchaSessionToken = ""
-		}
-	}
-
-	if captchaSessionToken == "" {
-		if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
-			s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
-			return
+	captchaSessionToken := ""
+	if s.cfg.RequireCaptcha {
+		captchaSessionToken = strings.TrimSpace(req.CaptchaSessionToken)
+		if captchaSessionToken != "" {
+			if err := s.validateCaptchaSession(r.RemoteAddr, captchaSessionToken); err != nil {
+				captchaSessionToken = ""
+			}
 		}
 
-		issuedSessionToken, err := s.createCaptchaSession(r.RemoteAddr)
-		if err != nil {
-			s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_SESSION_FAILED", err.Error(), nil)
-			return
+		if captchaSessionToken == "" {
+			if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
+				s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
+				return
+			}
+
+			issuedSessionToken, err := s.createCaptchaSession(r.RemoteAddr)
+			if err != nil {
+				s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_SESSION_FAILED", err.Error(), nil)
+				return
+			}
+			captchaSessionToken = issuedSessionToken
 		}
-		captchaSessionToken = issuedSessionToken
 	}
 
 	if !s.allowBuildRequest(r.RemoteAddr) {
@@ -193,11 +209,17 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 }
 
 func (s *Server) handleNewCaptcha(w http.ResponseWriter, r *http.Request, requestID string) {
+	if !s.cfg.RequireCaptcha {
+		s.writeSuccess(w, http.StatusOK, requestID, captchaResponse{CaptchaRequired: false})
+		return
+	}
+
 	challenge, err := s.newCaptcha(r.RemoteAddr)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_GENERATION_FAILED", err.Error(), nil)
 		return
 	}
+	challenge.CaptchaRequired = true
 
 	s.writeSuccess(w, http.StatusOK, requestID, challenge)
 }
@@ -491,10 +513,11 @@ func (s *Server) allowBuildRequest(remoteAddr string) bool {
 }
 
 type discoverRequest struct {
-	RepoURL       string `json:"repoUrl"`
-	Ref           string `json:"ref"`
-	CaptchaID     string `json:"captchaId"`
-	CaptchaAnswer string `json:"captchaAnswer"`
+	RepoURL             string `json:"repoUrl"`
+	Ref                 string `json:"ref"`
+	CaptchaID           string `json:"captchaId,omitempty"`
+	CaptchaAnswer       string `json:"captchaAnswer,omitempty"`
+	CaptchaSessionToken string `json:"captchaSessionToken,omitempty"`
 }
 
 type repoRefsRequest struct {
@@ -525,9 +548,15 @@ type createJobRequest struct {
 }
 
 type captchaResponse struct {
-	CaptchaID string    `json:"captchaId"`
-	Question  string    `json:"question"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	CaptchaRequired bool      `json:"captchaRequired"`
+	CaptchaID       string    `json:"captchaId,omitempty"`
+	Question        string    `json:"question,omitempty"`
+	ExpiresAt       time.Time `json:"expiresAt,omitempty"`
+}
+
+type healthResponse struct {
+	Status          string `json:"status"`
+	CaptchaRequired bool   `json:"captchaRequired"`
 }
 
 type logsResponse struct {

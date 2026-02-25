@@ -46,9 +46,15 @@ export interface RepoRefsResponse {
 }
 
 export interface CaptchaChallenge {
-  captchaId: string;
-  question: string;
-  expiresAt: string;
+  captchaRequired?: boolean;
+  captchaId?: string;
+  question?: string;
+  expiresAt?: string;
+}
+
+export interface ServerHealth {
+  status: string;
+  captchaRequired: boolean;
 }
 
 export interface LogsSnapshot {
@@ -64,12 +70,24 @@ export function apiUrl(path: string): string {
 export async function discoverDevices(
   repoUrl: string,
   ref: string,
-  captchaId: string,
-  captchaAnswer: string,
+  captchaId?: string,
+  captchaAnswer?: string,
+  captchaSessionToken?: string,
 ): Promise<DiscoverResponse> {
+  const payload: Record<string, string> = { repoUrl, ref };
+  if (captchaId) {
+    payload.captchaId = captchaId;
+  }
+  if (captchaAnswer) {
+    payload.captchaAnswer = captchaAnswer;
+  }
+  if (captchaSessionToken) {
+    payload.captchaSessionToken = captchaSessionToken;
+  }
+
   return request<DiscoverResponse>("/api/repos/discover", {
     method: "POST",
-    body: JSON.stringify({ repoUrl, ref, captchaId, captchaAnswer }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -108,6 +126,12 @@ export async function createBuildJob(
 
 export async function getCaptchaChallenge(): Promise<CaptchaChallenge> {
   return request<CaptchaChallenge>("/api/captcha", {
+    method: "GET",
+  });
+}
+
+export async function getServerHealth(): Promise<ServerHealth> {
+  return request<ServerHealth>("/api/healthz", {
     method: "GET",
   });
 }

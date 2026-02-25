@@ -163,17 +163,23 @@ In Docker Compose mode, frontend proxies `/api/*` to backend internally, so brow
 
 ## API
 
+- `GET /api/healthz`
+  - Returns service status and `captchaRequired` flag
 - `POST /api/repos/discover`
-  - Body: `{ "repoUrl": "...", "ref": "main", "captchaId": "...", "captchaAnswer": "..." }`
+  - Body (captcha enabled, first request): `{ "repoUrl": "...", "ref": "main", "captchaId": "...", "captchaAnswer": "..." }`
+  - Body (captcha enabled, session reuse): `{ "repoUrl": "...", "ref": "main", "captchaSessionToken": "..." }`
+  - Body (captcha disabled): `{ "repoUrl": "...", "ref": "main" }`
   - Returns build targets discovered from `[env:*]` sections in `variants/**/platformio.ini`
 - `POST /api/repos/refs`
   - Body: `{ "repoUrl": "..." }`
   - Returns `defaultBranch`, recent branches, and recent tags for UI ref picker
 - `GET /api/captcha`
-  - Returns one-time captcha challenge (`captchaId`, `question`, `expiresAt`)
+  - Returns one-time captcha challenge (`captchaRequired`, `captchaId`, `question`, `expiresAt`)
+  - If captcha is disabled, returns `{ "captchaRequired": false }`
 - `POST /api/jobs`
   - Body (first build in browser session): `{ "repoUrl": "...", "ref": "main", "device": "tbeam", "captchaId": "...", "captchaAnswer": "..." }`
   - Body (next builds in same browser session): `{ "repoUrl": "...", "ref": "main", "device": "tbeam", "captchaSessionToken": "..." }`
+  - Body (captcha disabled): `{ "repoUrl": "...", "ref": "main", "device": "tbeam" }`
   - Creates build job
 - `GET /api/jobs/{jobId}`
   - Returns current status (`queued|running|success|failed|cancelled`)
@@ -197,6 +203,7 @@ Important defaults:
 - `APP_BUILD_TIMEOUT_MINUTES=90`
 - `APP_ALLOWED_ORIGINS=http://localhost:5173`
 - `APP_BUILD_RATE_LIMIT_PER_MINUTE=10`
+- `APP_REQUIRE_CAPTCHA=1` (set `0`/`false` for trusted self-hosted installations)
 - `APP_PLATFORMIO_CACHE_DIR=./build-workdir/platformio-cache`
 - `APP_DOCKER_HOST_WORKDIR=/absolute/path/.../build-workdir` (required for Dockerized backend)
 - `APP_DOCKER_HOST_CACHE_DIR=/absolute/path/.../build-workdir/platformio-cache` (recommended)
@@ -213,7 +220,7 @@ Build speed notes:
 - Workspaces are isolated per job under `build-workdir/jobs/{jobId}`
 - Artifacts are served only from files registered for that job
 - Build creation endpoint has per-client in-memory rate limiting
-- Build creation endpoint requires captcha once per browser session (`captchaSessionToken` for subsequent builds)
+- Build creation endpoint supports captcha once per browser session (`captchaSessionToken`) when captcha is enabled
 
 ## Testing
 

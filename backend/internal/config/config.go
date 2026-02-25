@@ -20,6 +20,7 @@ const (
 	defaultAllowedOrigins      = "http://localhost:5173"
 	defaultMaxLogLines         = 20000
 	defaultBuildRateLimit      = 10
+	defaultRequireCaptcha      = true
 )
 
 type Config struct {
@@ -36,6 +37,7 @@ type Config struct {
 	DockerHostCache   string
 	MaxLogLines       int
 	BuildRateLimit    int
+	RequireCaptcha    bool
 	CleanupInterval   time.Duration
 	DiscoveryRootPath string
 	JobsRootPath      string
@@ -93,6 +95,11 @@ func Load() (Config, error) {
 	}
 	if buildRateLimit < 1 {
 		return Config{}, fmt.Errorf("APP_BUILD_RATE_LIMIT_PER_MINUTE must be >= 1")
+	}
+
+	requireCaptcha, err := boolEnv("APP_REQUIRE_CAPTCHA", defaultRequireCaptcha)
+	if err != nil {
+		return Config{}, err
 	}
 
 	workDir := os.Getenv("APP_WORKDIR")
@@ -166,10 +173,27 @@ func Load() (Config, error) {
 		DockerHostCache:   dockerHostCache,
 		MaxLogLines:       maxLogLines,
 		BuildRateLimit:    buildRateLimit,
+		RequireCaptcha:    requireCaptcha,
 		CleanupInterval:   time.Hour,
 		DiscoveryRootPath: discoveryRoot,
 		JobsRootPath:      jobsRoot,
 	}, nil
+}
+
+func boolEnv(key string, fallback bool) (bool, error) {
+	raw := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
+	if raw == "" {
+		return fallback, nil
+	}
+
+	switch raw {
+	case "1", "true", "yes", "on":
+		return true, nil
+	case "0", "false", "no", "off":
+		return false, nil
+	default:
+		return false, fmt.Errorf("%s must be a boolean", key)
+	}
 }
 
 func intEnv(key string, fallback int) (int, error) {
