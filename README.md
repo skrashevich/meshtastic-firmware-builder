@@ -52,6 +52,17 @@ npm run dev
 
 Frontend opens on `http://localhost:5173`, backend on `http://localhost:8080`.
 
+### Shareable build preset link
+
+You can prefill repository and ref directly from URL query parameters:
+
+```text
+http://localhost:5173/?repo=https%3A%2F%2Fgithub.com%2Fowner%2Frepo&ref=v2.5.12
+```
+
+- `repo` - repository URL
+- `ref` - branch, tag, or commit
+
 ## All-in-One Docker Mode
 
 Single Docker image containing backend, frontend, and Nginx reverse proxy. Supports multi-architecture (amd64 + arm64).

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArtifactItem,
   CaptchaChallenge,
@@ -21,6 +21,11 @@ import { Locale, dict } from "./i18n";
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 const captchaSessionStorageKey = "mfb.captchaSessionToken";
 const defaultRepoURL = "https://github.com/meshtastic/firmware";
+type InitialFormValues = {
+  repoUrl: string;
+  ref: string;
+  hasRefInQuery: boolean;
+};
 
 export default function App() {
   const supportChatUrl = "https://t.me/meshtastic_firmware_builder";
@@ -32,8 +37,9 @@ export default function App() {
   const projectRepoRef = "github.com/skrashevich/meshtastic-firmware-builder";
 
   const [locale, setLocale] = useState<Locale>("ru");
-  const [repoUrl, setRepoUrl] = useState(defaultRepoURL);
-  const [ref, setRef] = useState("");
+  const initialFormValues = useMemo(() => readInitialFormValues(defaultRepoURL), []);
+  const [repoUrl, setRepoUrl] = useState(initialFormValues.repoUrl);
+  const [ref, setRef] = useState(initialFormValues.ref);
   const [repoRefs, setRepoRefs] = useState<RepoRefsResponse | null>(null);
   const [refsLoading, setRefsLoading] = useState(false);
   const [refsError, setRefsError] = useState("");
@@ -59,6 +65,7 @@ export default function App() {
 
   const streamRef = useRef<EventSource | null>(null);
   const refsRepoRef = useRef("");
+  const skipNextDefaultRefFillRef = useRef(initialFormValues.hasRefInQuery);
   const logsTailRef = useRef<HTMLDivElement | null>(null);
 
   const t = dict[locale];
@@ -77,6 +84,10 @@ export default function App() {
     }
     logsTailRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs, autoScroll]);
+
+  useEffect(() => {
+    syncFormValuesToURL(repoUrl, ref);
+  }, [repoUrl, ref]);
 
   useEffect(() => {
     const trimmedRepo = repoUrl.trim();
@@ -99,7 +110,9 @@ export default function App() {
 
         const repoChanged = refsRepoRef.current !== trimmedRepo;
         refsRepoRef.current = trimmedRepo;
-        if (repoChanged && refsData.defaultBranch) {
+        if (repoChanged && skipNextDefaultRefFillRef.current) {
+          skipNextDefaultRefFillRef.current = false;
+        } else if (repoChanged && refsData.defaultBranch) {
           setRef(refsData.defaultBranch);
         }
       } catch (requestError) {
@@ -806,4 +819,51 @@ function limitRefItems<T extends { name: string }>(items: T[], limit: number): T
 
 function looksLikeRepoURL(value: string): boolean {
   return /^(https?:\/\/|ssh:\/\/|git:\/\/|git@)/.test(value);
+}
+
+function readInitialFormValues(defaultRepo: string): InitialFormValues {
+  if (typeof window === "undefined") {
+    return { repoUrl: defaultRepo, ref: "", hasRefInQuery: false };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const initialRepo = (params.get("repo") ?? params.get("repoUrl") ?? "").trim();
+  const initialRef = (params.get("ref") ?? "").trim();
+
+  return {
+    repoUrl: initialRepo || defaultRepo,
+    ref: initialRef,
+    hasRefInQuery: initialRef.length > 0,
+  };
+}
+
+function syncFormValuesToURL(repoUrl: string, ref: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  const params = new URLSearchParams(url.search);
+  params.delete("repoUrl");
+
+  setQueryParam(params, "repo", repoUrl.trim());
+  setQueryParam(params, "ref", ref.trim());
+
+  const currentSearch = url.searchParams.toString();
+  const nextSearch = params.toString();
+  if (currentSearch === nextSearch) {
+    return;
+  }
+
+  const searchPart = nextSearch ? `?${nextSearch}` : "";
+  const nextURL = `${url.pathname}${searchPart}${url.hash}`;
+  window.history.replaceState(null, "", nextURL);
+}
+
+function setQueryParam(params: URLSearchParams, key: string, value: string): void {
+  if (!value) {
+    params.delete(key);
+    return;
+  }
+  params.set(key, value);
 }
