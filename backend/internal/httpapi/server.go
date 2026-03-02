@@ -182,13 +182,15 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 		return
 	}
 
-	s.stats.Record(stats.Event{
-		Type:      stats.EventDiscover,
-		IP:        clientIP(r, s.cfg.TrustProxyHeaders),
-		UserAgent: r.UserAgent(),
-		RepoURL:   req.RepoURL,
-		Ref:       req.Ref,
-	})
+	if s.stats != nil {
+		s.stats.Record(stats.Event{
+			Type:      stats.EventDiscover,
+			IP:        clientIP(r, s.cfg.TrustProxyHeaders),
+			UserAgent: r.UserAgent(),
+			RepoURL:   req.RepoURL,
+			Ref:       req.Ref,
+		})
+	}
 
 	data := discoverResponse{
 		RepoURL:             req.RepoURL,
@@ -267,14 +269,16 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 		return
 	}
 
-	s.stats.Record(stats.Event{
-		Type:      stats.EventBuild,
-		IP:        clientIP(r, s.cfg.TrustProxyHeaders),
-		UserAgent: r.UserAgent(),
-		RepoURL:   req.RepoURL,
-		Ref:       req.Ref,
-		Device:    req.Device,
-	})
+	if s.stats != nil {
+		s.stats.Record(stats.Event{
+			Type:      stats.EventBuild,
+			IP:        clientIP(r, s.cfg.TrustProxyHeaders),
+			UserAgent: r.UserAgent(),
+			RepoURL:   req.RepoURL,
+			Ref:       req.Ref,
+			Device:    req.Device,
+		})
+	}
 
 	response := s.presentState(state)
 	response.CaptchaSessionToken = captchaSessionToken
@@ -416,12 +420,14 @@ func (s *Server) handleDownloadArtifact(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	s.stats.Record(stats.Event{
-		Type:      stats.EventDownload,
-		IP:        clientIP(r, s.cfg.TrustProxyHeaders),
-		UserAgent: r.UserAgent(),
-		Extra:     artifact.Name,
-	})
+	if s.stats != nil {
+		s.stats.Record(stats.Event{
+			Type:      stats.EventDownload,
+			IP:        clientIP(r, s.cfg.TrustProxyHeaders),
+			UserAgent: r.UserAgent(),
+			Extra:     artifact.Name,
+		})
+	}
 
 	fileName := filepath.Base(artifact.Name)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
