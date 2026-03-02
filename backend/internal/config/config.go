@@ -43,8 +43,9 @@ type Config struct {
 	DiscoveryRootPath string
 	JobsRootPath      string
 	FirmwareCachePath string
-	StatsPassword     string
-	StatsFilePath     string
+	StatsPassword      string
+	StatsFilePath      string
+	TrustProxyHeaders  bool
 }
 
 func Load() (Config, error) {
@@ -176,6 +177,11 @@ func Load() (Config, error) {
 
 	statsPassword := strings.TrimSpace(os.Getenv("APP_STATS_PASSWORD"))
 
+	trustProxyHeaders, err := boolEnv("APP_TRUST_PROXY_HEADERS", true)
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		Port:              port,
 		WorkDir:           workDir,
@@ -197,6 +203,7 @@ func Load() (Config, error) {
 		FirmwareCachePath: firmwareCachePath,
 		StatsPassword:     statsPassword,
 		StatsFilePath:     filepath.Join(workDir, "stats.jsonl"),
+		TrustProxyHeaders: trustProxyHeaders,
 	}, nil
 }
 

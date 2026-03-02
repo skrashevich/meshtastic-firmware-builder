@@ -104,7 +104,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request, requestID string) {
 	s.stats.Record(stats.Event{
 		Type:      stats.EventVisit,
-		IP:        clientIP(r),
+		IP:        clientIP(r, s.cfg.TrustProxyHeaders),
 		UserAgent: r.UserAgent(),
 	})
 	s.writeSuccess(w, http.StatusOK, requestID, healthResponse{Status: "ok", CaptchaRequired: s.cfg.RequireCaptcha})
@@ -132,7 +132,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, requestID s
 
 	summary, err := s.stats.Summarize()
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, requestID, "STATS_ERROR", err.Error(), nil)
+		s.logger.Printf("stats: summarize: %v", err)
+		s.writeError(w, http.StatusInternalServerError, requestID, "STATS_ERROR", "internal error", nil)
 		return
 	}
 	s.writeSuccess(w, http.StatusOK, requestID, summary)
@@ -177,7 +178,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 
 	s.stats.Record(stats.Event{
 		Type:      stats.EventDiscover,
-		IP:        clientIP(r),
+		IP:        clientIP(r, s.cfg.TrustProxyHeaders),
 		UserAgent: r.UserAgent(),
 		RepoURL:   req.RepoURL,
 		Ref:       req.Ref,
@@ -262,7 +263,7 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 
 	s.stats.Record(stats.Event{
 		Type:      stats.EventBuild,
-		IP:        clientIP(r),
+		IP:        clientIP(r, s.cfg.TrustProxyHeaders),
 		UserAgent: r.UserAgent(),
 		RepoURL:   req.RepoURL,
 		Ref:       req.Ref,
@@ -411,7 +412,7 @@ func (s *Server) handleDownloadArtifact(w http.ResponseWriter, r *http.Request, 
 
 	s.stats.Record(stats.Event{
 		Type:      stats.EventDownload,
-		IP:        clientIP(r),
+		IP:        clientIP(r, s.cfg.TrustProxyHeaders),
 		UserAgent: r.UserAgent(),
 		Extra:     artifact.Name,
 	})
@@ -446,7 +447,7 @@ func (s *Server) handleCORS(w http.ResponseWriter, r *http.Request, requestID st
 
 	w.Header().Set("Access-Control-Allow-Origin", origin)
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 	w.Header().Set("Access-Control-Max-Age", "600")
 	return true
 }
@@ -584,15 +585,17 @@ func generateRequestID() string {
 	return hex.EncodeToString(buffer)
 }
 
-func clientIP(r *http.Request) string {
-	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
-		return ip
-	}
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		if idx := strings.Index(fwd, ","); idx != -1 {
-			return strings.TrimSpace(fwd[:idx])
+func clientIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+			return ip
 		}
-		return strings.TrimSpace(fwd)
+		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+			if idx := strings.Index(fwd, ","); idx != -1 {
+				return strings.TrimSpace(fwd[:idx])
+			}
+			return strings.TrimSpace(fwd)
+		}
 	}
 	return normalizeRemoteHost(r.RemoteAddr)
 }

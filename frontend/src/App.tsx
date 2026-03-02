@@ -32,6 +32,10 @@ export default function App() {
   if (window.location.hash === "#stats") {
     return <StatsPage />;
   }
+  return <MainApp />;
+}
+
+function MainApp() {
   const supportChatUrl = "https://t.me/meshtastic_firmware_builder";
   const supportChatRef = "t.me/meshtastic_firmware_builder";
   const authorSignature = 'Sergei "svk" Krashevich <svk@svk.su>';

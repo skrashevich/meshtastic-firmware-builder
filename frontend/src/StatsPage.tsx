@@ -301,8 +301,8 @@ function StatsTable({ title, headers, rows }: { title: string; headers: string[]
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
+          {rows.map((row) => (
+            <tr key={row[0]} style={{ borderBottom: "1px solid var(--line)" }}>
               {row.map((cell, j) => (
                 <td
                   key={j}
@@ -362,18 +362,17 @@ function EventBadge({ type }: { type: string }) {
 }
 
 function formatTs(ts: string): string {
-  try {
-    const d = new Date(ts);
-    return d.toLocaleString("ru-RU", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) {
     return ts;
   }
+  return d.toLocaleString("ru-RU", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 function shortenUrl(url: string): string {

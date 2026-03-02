@@ -203,6 +203,34 @@ In Docker Compose mode, frontend proxies `/api/*` to backend internally, so brow
   - Returns firmware files found in `.pio/build/<target>/` (`.bin`, `.hex`, `.uf2`, `.elf`)
 - `GET /api/jobs/{jobId}/artifacts/{artifactId}`
   - Downloads artifact file
+- `GET /api/stats`
+  - Returns usage summary: visit/discover/build/download totals, unique IPs, top repositories, top devices, recent events, and per-day breakdown for the last 30 days
+  - Requires `APP_STATS_PASSWORD` to be set; returns 404 otherwise
+  - Authentication via `Authorization: Bearer <password>` header
+
+## Usage Statistics
+
+The server optionally collects anonymous usage events (visits, discovers, builds, downloads) to a local append-only JSONL file (`<workdir>/stats.jsonl`).
+
+**Enable by setting `APP_STATS_PASSWORD`:**
+
+```bash
+APP_STATS_PASSWORD=mysecretpassword
+```
+
+With a password set, the stats dashboard becomes available at `/#stats` in the browser.
+The `/api/stats` endpoint is authenticated via `Authorization: Bearer <password>`.
+
+**Events collected:**
+
+| Event | Trigger | Fields |
+|-------|---------|--------|
+| `visit` | `GET /api/healthz` | IP, user-agent |
+| `discover` | `POST /api/repos/discover` (success) | IP, user-agent, repo URL, ref |
+| `build` | `POST /api/jobs` (success) | IP, user-agent, repo URL, ref, device |
+| `download` | `GET /api/jobs/{id}/artifacts/{id}` | IP, user-agent, artifact name |
+
+**Privacy note:** IP addresses are stored in `stats.jsonl`. No external services are contacted; all data stays on your server. Rotate or delete the file manually if needed.
 
 ## Configuration
 
@@ -215,6 +243,8 @@ Important defaults:
 - `APP_ALLOWED_ORIGINS=http://localhost:5173`
 - `APP_BUILD_RATE_LIMIT_PER_MINUTE=10`
 - `APP_REQUIRE_CAPTCHA=1` (set `0`/`false` for trusted self-hosted installations)
+- `APP_STATS_PASSWORD=` (empty = stats disabled; set to enable `GET /api/stats` and `/#stats` dashboard)
+- `APP_TRUST_PROXY_HEADERS=1` (set `0`/`false` if NOT behind a reverse proxy — prevents IP spoofing via `X-Real-IP`/`X-Forwarded-For`)
 - `APP_PLATFORMIO_CACHE_DIR=./build-workdir/platformio-cache`
 - `APP_DOCKER_HOST_WORKDIR=/absolute/path/.../build-workdir` (required for Dockerized backend)
 - `APP_DOCKER_HOST_CACHE_DIR=/absolute/path/.../build-workdir/platformio-cache` (recommended)

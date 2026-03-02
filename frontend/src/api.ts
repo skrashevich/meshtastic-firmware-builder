@@ -211,7 +211,9 @@ export async function getArtifacts(jobId: string): Promise<ArtifactItem[]> {
 }
 
 export async function getStats(password: string): Promise<StatsSummary> {
-  return request<StatsSummary>(`/api/stats?password=${encodeURIComponent(password)}`);
+  return request<StatsSummary>("/api/stats", {
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${password}` },
+  });
 }
 
 export function createLogStream(jobId: string): EventSource {

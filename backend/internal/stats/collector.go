@@ -59,6 +59,7 @@ type Collector struct {
 	filePath string
 	mu       sync.Mutex
 	logger   *log.Logger
+	file     *os.File
 }
 
 func NewCollector(filePath string, logger *log.Logger) *Collector {
@@ -66,6 +67,20 @@ func NewCollector(filePath string, logger *log.Logger) *Collector {
 		filePath: filePath,
 		logger:   logger,
 	}
+}
+
+// getFile lazily opens the append-only write handle and reuses it.
+// Must be called with c.mu held.
+func (c *Collector) getFile() (*os.File, error) {
+	if c.file != nil {
+		return c.file, nil
+	}
+	f, err := os.OpenFile(c.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return nil, err
+	}
+	c.file = f
+	return f, nil
 }
 
 func (c *Collector) Record(event Event) {
@@ -82,12 +97,11 @@ func (c *Collector) Record(event Event) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	f, err := os.OpenFile(c.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := c.getFile()
 	if err != nil {
 		c.logger.Printf("stats: open file: %v", err)
 		return
 	}
-	defer f.Close()
 
 	if _, err := f.Write(append(line, '\n')); err != nil {
 		c.logger.Printf("stats: write event: %v", err)
@@ -124,6 +138,7 @@ func (c *Collector) Summarize() (Summary, error) {
 	)
 
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20) // 1 MB max line size
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {
