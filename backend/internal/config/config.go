@@ -43,9 +43,9 @@ type Config struct {
 	DiscoveryRootPath string
 	JobsRootPath      string
 	FirmwareCachePath string
-	StatsPassword      string
-	StatsFilePath      string
-	TrustProxyHeaders  bool
+	StatsPassword     string
+	StatsFilePath     string
+	TrustProxyHeaders bool
 }
 
 func Load() (Config, error) {
