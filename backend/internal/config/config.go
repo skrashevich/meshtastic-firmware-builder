@@ -177,7 +177,7 @@ func Load() (Config, error) {
 
 	statsPassword := strings.TrimSpace(os.Getenv("APP_STATS_PASSWORD"))
 
-	trustProxyHeaders, err := boolEnv("APP_TRUST_PROXY_HEADERS", true)
+	trustProxyHeaders, err := boolEnv("APP_TRUST_PROXY_HEADERS", false)
 	if err != nil {
 		return Config{}, err
 	}
