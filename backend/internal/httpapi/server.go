@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -590,16 +591,30 @@ func generateRequestID() string {
 	return hex.EncodeToString(buffer)
 }
 
+// parseValidIP parses s as an IP address (with optional port), returning the
+// bare, normalized IP string, or "" if s is not a valid IP.
+func parseValidIP(s string) string {
+	if addr, err := netip.ParseAddr(s); err == nil {
+		return addr.String()
+	}
+	if ap, err := netip.ParseAddrPort(s); err == nil {
+		return ap.Addr().String()
+	}
+	return ""
+}
+
 func clientIP(r *http.Request, trustProxy bool) string {
 	if trustProxy {
-		if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
-			return ip
+		if raw := strings.TrimSpace(r.Header.Get("X-Real-IP")); raw != "" {
+			if ip := parseValidIP(raw); ip != "" {
+				return ip
+			}
 		}
 		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-			if idx := strings.Index(fwd, ","); idx != -1 {
-				return strings.TrimSpace(fwd[:idx])
+			first, _, _ := strings.Cut(fwd, ",")
+			if ip := parseValidIP(strings.TrimSpace(first)); ip != "" {
+				return ip
 			}
-			return strings.TrimSpace(fwd)
 		}
 	}
 	return normalizeRemoteHost(r.RemoteAddr)
