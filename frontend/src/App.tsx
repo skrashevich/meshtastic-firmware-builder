@@ -17,6 +17,7 @@ import {
   getServerHealth,
 } from "./api";
 import { Locale, dict } from "./i18n";
+import StatsPage from "./StatsPage";
 
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 const captchaSessionStorageKey = "mfb.captchaSessionToken";
@@ -28,6 +29,9 @@ type InitialFormValues = {
 };
 
 export default function App() {
+  if (window.location.hash === "#stats") {
+    return <StatsPage />;
+  }
   const supportChatUrl = "https://t.me/meshtastic_firmware_builder";
   const supportChatRef = "t.me/meshtastic_firmware_builder";
   const authorSignature = 'Sergei "svk" Krashevich <svk@svk.su>';

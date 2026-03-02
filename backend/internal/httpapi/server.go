@@ -16,6 +16,7 @@ import (
 
 	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
 	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/jobs"
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/stats"
 )
 
 type Server struct {
@@ -28,6 +29,7 @@ type Server struct {
 	captchaMu       sync.Mutex
 	captchas        map[string]captchaChallenge
 	captchaSessions map[string]captchaSession
+	stats           *stats.Collector
 }
 
 func NewServer(cfg config.Config, manager *jobs.Manager, logger *log.Logger) *Server {
@@ -44,6 +46,7 @@ func NewServer(cfg config.Config, manager *jobs.Manager, logger *log.Logger) *Se
 		buildRequests:   make(map[string][]time.Time),
 		captchas:        make(map[string]captchaChallenge),
 		captchaSessions: make(map[string]captchaSession),
+		stats:           stats.NewCollector(cfg.StatsFilePath, logger),
 	}
 }
 
@@ -61,7 +64,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet && r.URL.Path == "/api/healthz" {
-		s.writeSuccess(w, http.StatusOK, requestID, healthResponse{Status: "ok", CaptchaRequired: s.cfg.RequireCaptcha})
+		s.handleHealthz(w, r, requestID)
+		return
+	}
+
+	if r.Method == http.MethodGet && r.URL.Path == "/api/stats" {
+		s.handleStats(w, r, requestID)
 		return
 	}
 
@@ -91,6 +99,43 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeError(w, http.StatusNotFound, requestID, "NOT_FOUND", "route not found", nil)
+}
+
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request, requestID string) {
+	s.stats.Record(stats.Event{
+		Type:      stats.EventVisit,
+		IP:        clientIP(r),
+		UserAgent: r.UserAgent(),
+	})
+	s.writeSuccess(w, http.StatusOK, requestID, healthResponse{Status: "ok", CaptchaRequired: s.cfg.RequireCaptcha})
+}
+
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, requestID string) {
+	if s.cfg.StatsPassword == "" {
+		s.writeError(w, http.StatusNotFound, requestID, "NOT_FOUND", "route not found", nil)
+		return
+	}
+
+	password := ""
+	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+		password = strings.TrimPrefix(auth, "Bearer ")
+	}
+	if password == "" {
+		password = r.URL.Query().Get("password")
+	}
+
+	if password != s.cfg.StatsPassword {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="stats"`)
+		s.writeError(w, http.StatusUnauthorized, requestID, "UNAUTHORIZED", "invalid password", nil)
+		return
+	}
+
+	summary, err := s.stats.Summarize()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, requestID, "STATS_ERROR", err.Error(), nil)
+		return
+	}
+	s.writeSuccess(w, http.StatusOK, requestID, summary)
 }
 
 func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestID string) {
@@ -129,6 +174,14 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 		s.writeError(w, http.StatusUnprocessableEntity, requestID, "DISCOVERY_FAILED", err.Error(), nil)
 		return
 	}
+
+	s.stats.Record(stats.Event{
+		Type:      stats.EventDiscover,
+		IP:        clientIP(r),
+		UserAgent: r.UserAgent(),
+		RepoURL:   req.RepoURL,
+		Ref:       req.Ref,
+	})
 
 	data := discoverResponse{
 		RepoURL:             req.RepoURL,
@@ -206,6 +259,15 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_JOB", err.Error(), nil)
 		return
 	}
+
+	s.stats.Record(stats.Event{
+		Type:      stats.EventBuild,
+		IP:        clientIP(r),
+		UserAgent: r.UserAgent(),
+		RepoURL:   req.RepoURL,
+		Ref:       req.Ref,
+		Device:    req.Device,
+	})
 
 	response := s.presentState(state)
 	response.CaptchaSessionToken = captchaSessionToken
@@ -346,6 +408,13 @@ func (s *Server) handleDownloadArtifact(w http.ResponseWriter, r *http.Request, 
 		s.handleJobError(w, requestID, err)
 		return
 	}
+
+	s.stats.Record(stats.Event{
+		Type:      stats.EventDownload,
+		IP:        clientIP(r),
+		UserAgent: r.UserAgent(),
+		Extra:     artifact.Name,
+	})
 
 	fileName := filepath.Base(artifact.Name)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
@@ -513,6 +582,19 @@ func generateRequestID() string {
 		return fmt.Sprintf("fallback-%d", time.Now().UnixNano())
 	}
 	return hex.EncodeToString(buffer)
+}
+
+func clientIP(r *http.Request) string {
+	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+		return ip
+	}
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		if idx := strings.Index(fwd, ","); idx != -1 {
+			return strings.TrimSpace(fwd[:idx])
+		}
+		return strings.TrimSpace(fwd)
+	}
+	return normalizeRemoteHost(r.RemoteAddr)
 }
 
 func (s *Server) allowBuildRequest(remoteAddr string) bool {

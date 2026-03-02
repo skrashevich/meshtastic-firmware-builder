@@ -43,6 +43,8 @@ type Config struct {
 	DiscoveryRootPath string
 	JobsRootPath      string
 	FirmwareCachePath string
+	StatsPassword     string
+	StatsFilePath     string
 }
 
 func Load() (Config, error) {
@@ -172,6 +174,8 @@ func Load() (Config, error) {
 		allowedOrigins = splitCSV(defaultAllowedOrigins)
 	}
 
+	statsPassword := strings.TrimSpace(os.Getenv("APP_STATS_PASSWORD"))
+
 	return Config{
 		Port:              port,
 		WorkDir:           workDir,
@@ -191,6 +195,8 @@ func Load() (Config, error) {
 		DiscoveryRootPath: discoveryRoot,
 		JobsRootPath:      jobsRoot,
 		FirmwareCachePath: firmwareCachePath,
+		StatsPassword:     statsPassword,
+		StatsFilePath:     filepath.Join(workDir, "stats.jsonl"),
 	}, nil
 }
 

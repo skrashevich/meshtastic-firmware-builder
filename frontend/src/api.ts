@@ -69,6 +69,42 @@ export interface LogsSnapshot {
   lines: string[];
 }
 
+export interface StatsEvent {
+  ts: string;
+  type: string;
+  ip: string;
+  ua?: string;
+  repo?: string;
+  ref?: string;
+  device?: string;
+  extra?: string;
+}
+
+export interface StatsCountEntry {
+  name: string;
+  count: number;
+}
+
+export interface StatsDayStats {
+  date: string;
+  visits: number;
+  discovers: number;
+  builds: number;
+  downloads: number;
+}
+
+export interface StatsSummary {
+  totalVisits: number;
+  totalDiscovers: number;
+  totalBuilds: number;
+  totalDownloads: number;
+  uniqueIPs: number;
+  topRepos: StatsCountEntry[];
+  topDevices: StatsCountEntry[];
+  recentEvents: StatsEvent[];
+  dailySummary: StatsDayStats[];
+}
+
 const API_BASE_URL = stripTrailingSlash(import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080");
 
 export function apiUrl(path: string): string {
@@ -172,6 +208,10 @@ export async function getLogs(jobId: string): Promise<LogsSnapshot> {
 export async function getArtifacts(jobId: string): Promise<ArtifactItem[]> {
   const response = await request<{ artifacts: ArtifactItem[] }>(`/api/jobs/${jobId}/artifacts`);
   return response.artifacts;
+}
+
+export async function getStats(password: string): Promise<StatsSummary> {
+  return request<StatsSummary>(`/api/stats?password=${encodeURIComponent(password)}`);
 }
 
 export function createLogStream(jobId: string): EventSource {
