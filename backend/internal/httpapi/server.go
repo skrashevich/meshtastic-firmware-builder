@@ -130,6 +130,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, requestID s
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
+	w.Header().Set("Pragma", "no-cache")
+
 	summary, err := s.stats.Summarize()
 	if err != nil {
 		s.logger.Printf("stats: summarize: %v", err)
