@@ -102,11 +102,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request, requestID string) {
-	s.stats.Record(stats.Event{
-		Type:      stats.EventVisit,
-		IP:        clientIP(r, s.cfg.TrustProxyHeaders),
-		UserAgent: r.UserAgent(),
-	})
+	if s.cfg.StatsPassword != "" && s.stats != nil {
+		s.stats.Record(stats.Event{
+			Type:      stats.EventVisit,
+			IP:        clientIP(r, s.cfg.TrustProxyHeaders),
+			UserAgent: r.UserAgent(),
+		})
+	}
 	s.writeSuccess(w, http.StatusOK, requestID, healthResponse{Status: "ok", CaptchaRequired: s.cfg.RequireCaptcha})
 }
 
