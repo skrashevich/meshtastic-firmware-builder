@@ -17,6 +17,7 @@ services:
       APP_REQUIRE_CAPTCHA: "${APP_REQUIRE_CAPTCHA:-1}"
       APP_DOCKER_HOST_WORKDIR: "${APP_DOCKER_HOST_WORKDIR:-${PWD}/build-workdir}"
       APP_DOCKER_HOST_CACHE_DIR: "${APP_DOCKER_HOST_CACHE_DIR:-${PWD}/build-workdir/platformio-cache}"
+      APP_STATS_PASSWORD: "${APP_STATS_PASSWORD}"
     volumes:
       - ${APP_DOCKER_HOST_WORKDIR:-${PWD}/build-workdir}:/app/build-workdir
       - /var/run/docker.sock:/var/run/docker.sock
