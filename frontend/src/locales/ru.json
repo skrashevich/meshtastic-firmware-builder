@@ -102,5 +102,13 @@
   "statsEventVisit": "визит",
   "statsEventDiscover": "поиск",
   "statsEventBuild": "сборка",
-  "statsEventDownload": "скачать"
+  "statsEventDownload": "скачать",
+  "statsCacheTitle": "Кэш прошивок",
+  "statsCacheEntries": "записей",
+  "statsCacheTotalSize": "Общий размер",
+  "statsCacheCreated": "Создано",
+  "statsCacheArtifacts": "Файлы",
+  "statsCacheKey": "Ключ",
+  "statsCacheSize": "Размер",
+  "statsCacheEmpty": "Кэш пуст"
 }

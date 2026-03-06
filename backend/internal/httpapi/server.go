@@ -168,7 +168,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, requestID s
 		s.writeError(w, http.StatusInternalServerError, requestID, "STATS_ERROR", "internal error", nil)
 		return
 	}
-	s.writeSuccess(w, http.StatusOK, requestID, summary)
+
+	cacheInfo := jobs.ScanFirmwareCache(s.cfg.FirmwareCachePath)
+	s.writeSuccess(w, http.StatusOK, requestID, statsFullResponse{
+		Summary:       summary,
+		FirmwareCache: &cacheInfo,
+	})
 }
 
 func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestID string) {
@@ -774,4 +779,9 @@ type repoRefView struct {
 	Name      string     `json:"name"`
 	Commit    string     `json:"commit,omitempty"`
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+}
+
+type statsFullResponse struct {
+	stats.Summary
+	FirmwareCache *jobs.FirmwareCacheInfo `json:"firmwareCache,omitempty"`
 }

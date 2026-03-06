@@ -277,6 +277,97 @@ func shortCommit(commit string) string {
 	return trimmed[:12]
 }
 
+// FirmwareCacheArtifactInfo describes a single artifact inside a cache entry.
+type FirmwareCacheArtifactInfo struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}
+
+// FirmwareCacheEntry describes a single firmware cache entry.
+type FirmwareCacheEntry struct {
+	Key       string                      `json:"key"`
+	CreatedAt time.Time                   `json:"createdAt"`
+	TotalSize int64                       `json:"totalSize"`
+	Artifacts []FirmwareCacheArtifactInfo `json:"artifacts"`
+}
+
+// FirmwareCacheInfo describes the overall firmware cache state.
+type FirmwareCacheInfo struct {
+	TotalSize  int64                `json:"totalSize"`
+	EntryCount int                  `json:"entryCount"`
+	Entries    []FirmwareCacheEntry `json:"entries"`
+}
+
+// ScanFirmwareCache reads all cache entries from the given root directory
+// and returns a summary with entries sorted by creation time (newest first).
+func ScanFirmwareCache(cacheRootPath string) FirmwareCacheInfo {
+	root := strings.TrimSpace(cacheRootPath)
+	if root == "" {
+		return FirmwareCacheInfo{Entries: []FirmwareCacheEntry{}}
+	}
+
+	dirEntries, err := os.ReadDir(root)
+	if err != nil {
+		return FirmwareCacheInfo{Entries: []FirmwareCacheEntry{}}
+	}
+
+	var result []FirmwareCacheEntry
+	var totalSize int64
+
+	for _, de := range dirEntries {
+		if !de.IsDir() {
+			continue
+		}
+		name := de.Name()
+		if len(name) != 64 || !isLowerHexString(name) {
+			continue
+		}
+
+		manifestPath := filepath.Join(root, name, firmwareCacheManifestName)
+		content, err := os.ReadFile(manifestPath)
+		if err != nil {
+			continue
+		}
+
+		var manifest firmwareCacheManifest
+		if err := json.Unmarshal(content, &manifest); err != nil {
+			continue
+		}
+
+		var entrySize int64
+		artifacts := make([]FirmwareCacheArtifactInfo, 0, len(manifest.Artifacts))
+		for _, a := range manifest.Artifacts {
+			artifacts = append(artifacts, FirmwareCacheArtifactInfo{
+				Name: a.Name,
+				Size: a.Size,
+			})
+			entrySize += a.Size
+		}
+
+		result = append(result, FirmwareCacheEntry{
+			Key:       name,
+			CreatedAt: manifest.CreatedAt,
+			TotalSize: entrySize,
+			Artifacts: artifacts,
+		})
+		totalSize += entrySize
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+
+	if result == nil {
+		result = []FirmwareCacheEntry{}
+	}
+
+	return FirmwareCacheInfo{
+		TotalSize:  totalSize,
+		EntryCount: len(result),
+		Entries:    result,
+	}
+}
+
 func isLowerHexString(value string) bool {
 	for _, char := range value {
 		if (char < '0' || char > '9') && (char < 'a' || char > 'f') {

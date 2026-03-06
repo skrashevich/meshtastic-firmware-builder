@@ -94,6 +94,24 @@ export interface StatsDayStats {
   downloads: number;
 }
 
+export interface FirmwareCacheArtifactInfo {
+  name: string;
+  size: number;
+}
+
+export interface FirmwareCacheEntry {
+  key: string;
+  createdAt: string;
+  totalSize: number;
+  artifacts: FirmwareCacheArtifactInfo[];
+}
+
+export interface FirmwareCacheInfo {
+  totalSize: number;
+  entryCount: number;
+  entries: FirmwareCacheEntry[];
+}
+
 export interface StatsSummary {
   totalVisits: number;
   totalDiscovers: number;
@@ -104,6 +122,7 @@ export interface StatsSummary {
   topDevices: StatsCountEntry[];
   recentEvents: StatsEvent[];
   dailySummary: StatsDayStats[];
+  firmwareCache?: FirmwareCacheInfo;
 }
 
 const API_BASE_URL = stripTrailingSlash(import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080");

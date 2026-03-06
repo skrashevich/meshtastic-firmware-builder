@@ -221,6 +221,78 @@ export default function StatsPage() {
               </div>
             )}
 
+            {/* Firmware cache */}
+            {data.firmwareCache && (
+              <div
+                style={{
+                  background: "var(--surface)",
+                  borderRadius: "var(--radius)",
+                  padding: 20,
+                  boxShadow: "var(--shadow)",
+                }}
+              >
+                <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600 }}>
+                  {t.statsCacheTitle} — {data.firmwareCache.entryCount} {t.statsCacheEntries}
+                  {data.firmwareCache.totalSize > 0 && (
+                    <span style={{ fontWeight: 400, color: "var(--ink-muted)", marginLeft: 8 }}>
+                      ({t.statsCacheTotalSize}: {formatBytes(data.firmwareCache.totalSize)})
+                    </span>
+                  )}
+                </h3>
+                {data.firmwareCache.entries.length === 0 ? (
+                  <p style={{ color: "var(--ink-muted)", margin: 0, fontSize: 13 }}>{t.statsCacheEmpty}</p>
+                ) : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1.5px solid var(--line)" }}>
+                          {[t.statsCacheKey, t.statsCacheCreated, t.statsCacheArtifacts, t.statsCacheSize].map((h) => (
+                            <th
+                              key={h}
+                              style={{
+                                padding: "6px 8px",
+                                textAlign: "left",
+                                color: "var(--ink-muted)",
+                                fontWeight: 600,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.firmwareCache.entries.map((entry) => (
+                          <tr key={entry.key} style={{ borderBottom: "1px solid var(--line)" }}>
+                            <td
+                              style={{
+                                padding: "5px 8px",
+                                fontFamily: "IBM Plex Mono, monospace",
+                                fontSize: 11,
+                              }}
+                              title={entry.key}
+                            >
+                              {entry.key.slice(0, 12)}…
+                            </td>
+                            <td style={{ padding: "5px 8px", whiteSpace: "nowrap" }}>
+                              {formatTs(entry.createdAt, locale)}
+                            </td>
+                            <td style={{ padding: "5px 8px" }}>
+                              {entry.artifacts.map((a) => a.name).join(", ")}
+                            </td>
+                            <td style={{ padding: "5px 8px", whiteSpace: "nowrap", textAlign: "right" }}>
+                              {formatBytes(entry.totalSize)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Recent events */}
             {data.recentEvents.length > 0 && (
               <div
@@ -474,4 +546,12 @@ function shortenUrl(url: string): string {
   } catch {
     return url;
   }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, i);
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }

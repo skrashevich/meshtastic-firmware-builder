@@ -102,5 +102,13 @@
   "statsEventVisit": "visit",
   "statsEventDiscover": "discover",
   "statsEventBuild": "build",
-  "statsEventDownload": "download"
+  "statsEventDownload": "download",
+  "statsCacheTitle": "Firmware Cache",
+  "statsCacheEntries": "entries",
+  "statsCacheTotalSize": "Total size",
+  "statsCacheCreated": "Created",
+  "statsCacheArtifacts": "Files",
+  "statsCacheKey": "Key",
+  "statsCacheSize": "Size",
+  "statsCacheEmpty": "Cache is empty"
 }
