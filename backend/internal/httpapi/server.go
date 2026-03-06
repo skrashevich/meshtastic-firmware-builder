@@ -111,7 +111,11 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request, requestID
 			UserAgent: r.UserAgent(),
 		})
 	}
-	s.writeSuccess(w, http.StatusOK, requestID, healthResponse{Status: "ok", CaptchaRequired: s.cfg.RequireCaptcha})
+	s.writeSuccess(w, http.StatusOK, requestID, healthResponse{
+		Status:          "ok",
+		CaptchaRequired: s.cfg.RequireCaptcha,
+		StatsEnabled:    s.cfg.StatsPassword != "",
+	})
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, requestID string) {
@@ -728,6 +732,7 @@ type captchaResponse struct {
 type healthResponse struct {
 	Status          string `json:"status"`
 	CaptchaRequired bool   `json:"captchaRequired"`
+	StatsEnabled    bool   `json:"statsEnabled"`
 }
 
 type logsResponse struct {

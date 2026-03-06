@@ -56,6 +56,7 @@ function MainApp() {
   const [captchaLoading, setCaptchaLoading] = useState(false);
   const [captchaSessionToken, setCaptchaSessionToken] = useState("");
   const [captchaRequired, setCaptchaRequired] = useState(true);
+  const [statsEnabled, setStatsEnabled] = useState(false);
   const [devices, setDevices] = useState<string[]>([]);
   const [deviceOptions, setDeviceOptions] = useState<Record<string, DiscoverBuildOptions>>({});
   const [selectedDevice, setSelectedDevice] = useState("");
@@ -158,6 +159,7 @@ function MainApp() {
 
         const requiresCaptcha = health.captchaRequired !== false;
         setCaptchaRequired(requiresCaptcha);
+        setStatsEnabled(!!health.statsEnabled);
 
         if (!requiresCaptcha) {
           clearCaptchaSessionToken();
@@ -729,6 +731,7 @@ function MainApp() {
               {projectRepoRef}
             </a>
           </span>
+          {statsEnabled && <a href="/#stats" style={{ color: "var(--ink-muted)", fontSize: 11 }}>{t.footerStats}</a>}
         </footer>
       </main>
     </div>

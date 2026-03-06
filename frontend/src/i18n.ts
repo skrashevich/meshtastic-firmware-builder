@@ -51,6 +51,7 @@ type Dictionary = {
   supportTone: string;
   footerAuthor: string;
   footerRepository: string;
+  footerStats: string;
   autoScrollOn: string;
   autoScrollOff: string;
   clearLogs: string;
@@ -60,6 +61,45 @@ type Dictionary = {
   noDevices: string;
   unknownError: string;
   statuses: Record<string, string>;
+  // Stats page
+  statsTitle: string;
+  statsBack: string;
+  statsPasswordLabel: string;
+  statsPasswordPlaceholder: string;
+  statsLoading: string;
+  statsShow: string;
+  statsRequestError: string;
+  statsVisits: string;
+  statsDiscovers: string;
+  statsBuilds: string;
+  statsDownloads: string;
+  statsUniqueIPs: string;
+  statsTopRepos: string;
+  statsTopDevices: string;
+  statsRepoHeader: string;
+  statsRequestsHeader: string;
+  statsDeviceHeader: string;
+  statsBuildsHeader: string;
+  statsTopLabel: string;
+  statsByDay: string;
+  statsDayDate: string;
+  statsDayVisits: string;
+  statsDayDiscovers: string;
+  statsDayBuilds: string;
+  statsDayDownloads: string;
+  statsRecentEvents: string;
+  statsShowLabel: string;
+  statsEvTime: string;
+  statsEvType: string;
+  statsEvIP: string;
+  statsEvRepo: string;
+  statsEvRef: string;
+  statsEvDevice: string;
+  statsChangePassword: string;
+  statsEventVisit: string;
+  statsEventDiscover: string;
+  statsEventBuild: string;
+  statsEventDownload: string;
 };
 
 export const dict: Record<Locale, Dictionary> = {
@@ -117,6 +157,7 @@ export const dict: Record<Locale, Dictionary> = {
     supportTone: "Мы приветствуем вопросы и просьбы; не приветствуются требования; оскорбительные и дискредитирующие (в том числе по политическим мотивам) высказывания.\n🇺🇦 и 🇷🇺 мы рады одинаково и равнозначно",
     footerAuthor: "Автор",
     footerRepository: "Репозиторий",
+    footerStats: "Статистика",
     autoScrollOn: "Автопрокрутка: вкл",
     autoScrollOff: "Автопрокрутка: выкл",
     clearLogs: "Очистить логи",
@@ -132,6 +173,44 @@ export const dict: Record<Locale, Dictionary> = {
       failed: "ошибка",
       cancelled: "отменено",
     },
+    statsTitle: "Статистика использования",
+    statsBack: "Назад",
+    statsPasswordLabel: "Пароль для просмотра статистики",
+    statsPasswordPlaceholder: "Введите пароль...",
+    statsLoading: "Загрузка...",
+    statsShow: "Показать",
+    statsRequestError: "Ошибка запроса",
+    statsVisits: "Визиты",
+    statsDiscovers: "Поиск устройств",
+    statsBuilds: "Сборки",
+    statsDownloads: "Скачивания",
+    statsUniqueIPs: "Уникальных IP",
+    statsTopRepos: "Топ репозиториев",
+    statsTopDevices: "Топ устройств",
+    statsRepoHeader: "Репозиторий",
+    statsRequestsHeader: "Запросов",
+    statsDeviceHeader: "Устройство",
+    statsBuildsHeader: "Сборок",
+    statsTopLabel: "Топ",
+    statsByDay: "По дням",
+    statsDayDate: "Дата",
+    statsDayVisits: "Визиты",
+    statsDayDiscovers: "Поиск",
+    statsDayBuilds: "Сборки",
+    statsDayDownloads: "Скачивания",
+    statsRecentEvents: "Последние события",
+    statsShowLabel: "Показать",
+    statsEvTime: "Время",
+    statsEvType: "Тип",
+    statsEvIP: "IP",
+    statsEvRepo: "Репозиторий",
+    statsEvRef: "Ref",
+    statsEvDevice: "Устройство",
+    statsChangePassword: "Сменить пароль",
+    statsEventVisit: "визит",
+    statsEventDiscover: "поиск",
+    statsEventBuild: "сборка",
+    statsEventDownload: "скачать",
   },
   en: {
     title: "Meshtastic Firmware Builder",
@@ -187,6 +266,7 @@ export const dict: Record<Locale, Dictionary> = {
     supportTone: "Questions and requests are welcome; demands are not.",
     footerAuthor: "Author",
     footerRepository: "Repository",
+    footerStats: "Stats",
     autoScrollOn: "Autoscroll: on",
     autoScrollOff: "Autoscroll: off",
     clearLogs: "Clear logs",
@@ -202,5 +282,43 @@ export const dict: Record<Locale, Dictionary> = {
       failed: "failed",
       cancelled: "cancelled",
     },
+    statsTitle: "Usage Statistics",
+    statsBack: "Back",
+    statsPasswordLabel: "Password to view statistics",
+    statsPasswordPlaceholder: "Enter password...",
+    statsLoading: "Loading...",
+    statsShow: "Show",
+    statsRequestError: "Request error",
+    statsVisits: "Visits",
+    statsDiscovers: "Device discoveries",
+    statsBuilds: "Builds",
+    statsDownloads: "Downloads",
+    statsUniqueIPs: "Unique IPs",
+    statsTopRepos: "Top repositories",
+    statsTopDevices: "Top devices",
+    statsRepoHeader: "Repository",
+    statsRequestsHeader: "Requests",
+    statsDeviceHeader: "Device",
+    statsBuildsHeader: "Builds",
+    statsTopLabel: "Top",
+    statsByDay: "By day",
+    statsDayDate: "Date",
+    statsDayVisits: "Visits",
+    statsDayDiscovers: "Discovers",
+    statsDayBuilds: "Builds",
+    statsDayDownloads: "Downloads",
+    statsRecentEvents: "Recent events",
+    statsShowLabel: "Show",
+    statsEvTime: "Time",
+    statsEvType: "Type",
+    statsEvIP: "IP",
+    statsEvRepo: "Repository",
+    statsEvRef: "Ref",
+    statsEvDevice: "Device",
+    statsChangePassword: "Change password",
+    statsEventVisit: "visit",
+    statsEventDiscover: "discover",
+    statsEventBuild: "build",
+    statsEventDownload: "download",
   },
 };

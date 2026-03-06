@@ -1,16 +1,20 @@
 import { FormEvent, useState } from "react";
 import { StatsSummary, getStats } from "./api";
+import { Locale, dict } from "./i18n";
 
 const RECENT_STEPS = [50, 150, 500];
 const TOP_STEPS = [10, 30, 100];
 
 export default function StatsPage() {
+  const [locale, setLocale] = useState<Locale>("ru");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState<StatsSummary | null>(null);
   const [recentLimit, setRecentLimit] = useState(RECENT_STEPS[0]);
   const [topLimit, setTopLimit] = useState(TOP_STEPS[0]);
+
+  const t = dict[locale];
 
   async function fetchStats(opts?: { recent?: number; top?: number }) {
     const rl = opts?.recent ?? recentLimit;
@@ -23,7 +27,7 @@ export default function StatsPage() {
       setRecentLimit(rl);
       setTopLimit(tl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка запроса");
+      setError(err instanceof Error ? err.message : t.statsRequestError);
     } finally {
       setLoading(false);
     }
@@ -34,14 +38,35 @@ export default function StatsPage() {
     await fetchStats();
   }
 
+  const eventLabelsI18n: Record<string, string> = {
+    visit: t.statsEventVisit,
+    discover: t.statsEventDiscover,
+    build: t.statsEventBuild,
+    download: t.statsEventDownload,
+  };
+
   return (
     <div className="page-shell">
       <div className="layout" style={{ maxWidth: 960, margin: "0 auto", padding: "28px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <a href="/" style={{ color: "var(--accent)", textDecoration: "none", fontSize: 14 }}>
-            ← Назад
+            &larr; {t.statsBack}
           </a>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Статистика использования</h1>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, flex: 1 }}>{t.statsTitle}</h1>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              className={locale === "ru" ? "locale-btn active" : "locale-btn"}
+              onClick={() => setLocale("ru")}
+            >
+              RU
+            </button>
+            <button
+              className={locale === "en" ? "locale-btn active" : "locale-btn"}
+              onClick={() => setLocale("en")}
+            >
+              EN
+            </button>
+          </div>
         </div>
 
         {!data && (
@@ -55,12 +80,12 @@ export default function StatsPage() {
             }}
           >
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <label style={{ fontWeight: 600, fontSize: 14 }}>Пароль для просмотра статистики</label>
+              <label style={{ fontWeight: 600, fontSize: 14 }}>{t.statsPasswordLabel}</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Введите пароль..."
+                placeholder={t.statsPasswordPlaceholder}
                 autoFocus
                 style={{
                   padding: "10px 14px",
@@ -87,7 +112,7 @@ export default function StatsPage() {
                   opacity: loading || !password ? 0.6 : 1,
                 }}
               >
-                {loading ? "Загрузка..." : "Показать"}
+                {loading ? t.statsLoading : t.statsShow}
               </button>
             </form>
           </div>
@@ -98,11 +123,11 @@ export default function StatsPage() {
             {/* Counters */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
               {[
-                { label: "Визиты", value: data.totalVisits, color: "#0f8f7f" },
-                { label: "Поиск устройств", value: data.totalDiscovers, color: "#5c7cfa" },
-                { label: "Сборки", value: data.totalBuilds, color: "#f76707" },
-                { label: "Скачивания", value: data.totalDownloads, color: "#2f9e44" },
-                { label: "Уникальных IP", value: data.uniqueIPs, color: "#ae3ec9" },
+                { label: t.statsVisits, value: data.totalVisits, color: "#0f8f7f" },
+                { label: t.statsDiscovers, value: data.totalDiscovers, color: "#5c7cfa" },
+                { label: t.statsBuilds, value: data.totalBuilds, color: "#f76707" },
+                { label: t.statsDownloads, value: data.totalDownloads, color: "#2f9e44" },
+                { label: t.statsUniqueIPs, value: data.uniqueIPs, color: "#ae3ec9" },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -124,8 +149,8 @@ export default function StatsPage() {
               {/* Top repos */}
               {data.topRepos.length > 0 && (
                 <StatsTable
-                  title={`Топ репозиториев (${data.topRepos.length})`}
-                  headers={["Репозиторий", "Запросов"]}
+                  title={`${t.statsTopRepos} (${data.topRepos.length})`}
+                  headers={[t.statsRepoHeader, t.statsRequestsHeader]}
                   rows={data.topRepos.map((r) => [shortenUrl(r.name), String(r.count)])}
                 />
               )}
@@ -133,8 +158,8 @@ export default function StatsPage() {
               {/* Top devices */}
               {data.topDevices.length > 0 && (
                 <StatsTable
-                  title={`Топ устройств (${data.topDevices.length})`}
-                  headers={["Устройство", "Сборок"]}
+                  title={`${t.statsTopDevices} (${data.topDevices.length})`}
+                  headers={[t.statsDeviceHeader, t.statsBuildsHeader]}
                   rows={data.topDevices.map((d) => [d.name, String(d.count)])}
                 />
               )}
@@ -142,7 +167,7 @@ export default function StatsPage() {
 
             {(data.topRepos.length > 0 || data.topDevices.length > 0) && (
               <LimitSelector
-                label="Топ"
+                label={t.statsTopLabel}
                 steps={TOP_STEPS}
                 current={topLimit}
                 loading={loading}
@@ -160,17 +185,17 @@ export default function StatsPage() {
                   boxShadow: "var(--shadow)",
                 }}
               >
-                <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600 }}>По дням</h3>
+                <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600 }}>{t.statsByDay}</h3>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
                       <tr style={{ borderBottom: "1.5px solid var(--line)" }}>
-                        {["Дата", "Визиты", "Поиск", "Сборки", "Скачивания"].map((h) => (
+                        {[t.statsDayDate, t.statsDayVisits, t.statsDayDiscovers, t.statsDayBuilds, t.statsDayDownloads].map((h, i) => (
                           <th
                             key={h}
                             style={{
                               padding: "6px 10px",
-                              textAlign: h === "Дата" ? "left" : "right",
+                              textAlign: i === 0 ? "left" : "right",
                               color: "var(--ink-muted)",
                               fontWeight: 600,
                             }}
@@ -208,10 +233,10 @@ export default function StatsPage() {
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 12px" }}>
                   <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
-                    Последние события ({data.recentEvents.length})
+                    {t.statsRecentEvents} ({data.recentEvents.length})
                   </h3>
                   <LimitSelector
-                    label="Показать"
+                    label={t.statsShowLabel}
                     steps={RECENT_STEPS}
                     current={recentLimit}
                     loading={loading}
@@ -223,7 +248,7 @@ export default function StatsPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
                       <tr style={{ borderBottom: "1.5px solid var(--line)" }}>
-                        {["Время", "Тип", "IP", "Репозиторий", "Ref", "Устройство"].map((h) => (
+                        {[t.statsEvTime, t.statsEvType, t.statsEvIP, t.statsEvRepo, t.statsEvRef, t.statsEvDevice].map((h) => (
                           <th
                             key={h}
                             style={{
@@ -243,10 +268,10 @@ export default function StatsPage() {
                       {data.recentEvents.map((ev, i) => (
                         <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
                           <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono, monospace", whiteSpace: "nowrap" }}>
-                            {formatTs(ev.ts)}
+                            {formatTs(ev.ts, locale)}
                           </td>
                           <td style={{ padding: "5px 8px" }}>
-                            <EventBadge type={ev.type} />
+                            <EventBadge type={ev.type} labels={eventLabelsI18n} />
                           </td>
                           <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono, monospace" }}>{ev.ip}</td>
                           <td
@@ -259,7 +284,7 @@ export default function StatsPage() {
                             }}
                             title={ev.repo}
                           >
-                            {ev.repo ? shortenUrl(ev.repo) : "—"}
+                            {ev.repo ? shortenUrl(ev.repo) : "\u2014"}
                           </td>
                           <td
                             style={{
@@ -271,9 +296,9 @@ export default function StatsPage() {
                               whiteSpace: "nowrap",
                             }}
                           >
-                            {ev.ref || "—"}
+                            {ev.ref || "\u2014"}
                           </td>
-                          <td style={{ padding: "5px 8px" }}>{ev.device || ev.extra || "—"}</td>
+                          <td style={{ padding: "5px 8px" }}>{ev.device || ev.extra || "\u2014"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -295,7 +320,7 @@ export default function StatsPage() {
                 color: "var(--ink-muted)",
               }}
             >
-              Сменить пароль
+              {t.statsChangePassword}
             </button>
           </div>
         )}
@@ -409,14 +434,7 @@ const eventColors: Record<string, string> = {
   download: "#2f9e44",
 };
 
-const eventLabels: Record<string, string> = {
-  visit: "визит",
-  discover: "поиск",
-  build: "сборка",
-  download: "скачать",
-};
-
-function EventBadge({ type }: { type: string }) {
+function EventBadge({ type, labels }: { type: string; labels: Record<string, string> }) {
   const color = eventColors[type] ?? "#888";
   return (
     <span
@@ -431,17 +449,17 @@ function EventBadge({ type }: { type: string }) {
         whiteSpace: "nowrap",
       }}
     >
-      {eventLabels[type] ?? type}
+      {labels[type] ?? type}
     </span>
   );
 }
 
-function formatTs(ts: string): string {
+function formatTs(ts: string, locale: Locale): string {
   const d = new Date(ts);
   if (isNaN(d.getTime())) {
     return ts;
   }
-  return d.toLocaleString("ru-RU", {
+  return d.toLocaleString(locale === "ru" ? "ru-RU" : "en-GB", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",

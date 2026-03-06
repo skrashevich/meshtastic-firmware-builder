@@ -63,6 +63,7 @@ export interface CaptchaChallenge {
 export interface ServerHealth {
   status: string;
   captchaRequired: boolean;
+  statsEnabled: boolean;
 }
 
 export interface LogsSnapshot {
