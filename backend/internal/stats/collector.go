@@ -108,7 +108,18 @@ func (c *Collector) Record(event Event) {
 	}
 }
 
-func (c *Collector) Summarize() (Summary, error) {
+type SummarizeOptions struct {
+	RecentLimit int
+	TopLimit    int
+}
+
+func (c *Collector) Summarize(opts SummarizeOptions) (Summary, error) {
+	if opts.RecentLimit <= 0 {
+		opts.RecentLimit = 50
+	}
+	if opts.TopLimit <= 0 {
+		opts.TopLimit = 10
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -175,17 +186,17 @@ func (c *Collector) Summarize() (Summary, error) {
 		return Summary{}, err
 	}
 
-	// Recent events (last 50, newest first)
-	recent := make([]Event, 0, 50)
-	for i := len(allEvents) - 1; i >= 0 && len(recent) < 50; i-- {
+	// Recent events (newest first)
+	recent := make([]Event, 0, opts.RecentLimit)
+	for i := len(allEvents) - 1; i >= 0 && len(recent) < opts.RecentLimit; i-- {
 		recent = append(recent, allEvents[i])
 	}
 
 	// Top repos (by build+discover counts)
-	topRepos := rankEntries(repoCounts, 10)
+	topRepos := rankEntries(repoCounts, opts.TopLimit)
 
 	// Top devices
-	topDevices := rankEntries(deviceCounts, 10)
+	topDevices := rankEntries(deviceCounts, opts.TopLimit)
 
 	// Daily summary (last 30 days)
 	daily := buildDailySummary(allEvents, 30)

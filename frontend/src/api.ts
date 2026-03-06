@@ -210,8 +210,15 @@ export async function getArtifacts(jobId: string): Promise<ArtifactItem[]> {
   return response.artifacts;
 }
 
-export async function getStats(password: string): Promise<StatsSummary> {
-  return request<StatsSummary>("/api/stats", {
+export async function getStats(
+  password: string,
+  opts?: { recentLimit?: number; topLimit?: number },
+): Promise<StatsSummary> {
+  const params = new URLSearchParams();
+  if (opts?.recentLimit) params.set("recentLimit", String(opts.recentLimit));
+  if (opts?.topLimit) params.set("topLimit", String(opts.topLimit));
+  const qs = params.toString();
+  return request<StatsSummary>(`/api/stats${qs ? `?${qs}` : ""}`, {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${password}` },
   });
 }

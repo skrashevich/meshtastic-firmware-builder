@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/netip"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -136,7 +137,28 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, requestID s
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
 	w.Header().Set("Pragma", "no-cache")
 
-	summary, err := s.stats.Summarize()
+	const (
+		maxRecentLimit = 1000
+		maxTopLimit    = 1000
+	)
+
+	opts := stats.SummarizeOptions{}
+	if v, err := strconv.Atoi(r.URL.Query().Get("recentLimit")); err == nil && v > 0 {
+		if v > maxRecentLimit {
+			opts.RecentLimit = maxRecentLimit
+		} else {
+			opts.RecentLimit = v
+		}
+	}
+	if v, err := strconv.Atoi(r.URL.Query().Get("topLimit")); err == nil && v > 0 {
+		if v > maxTopLimit {
+			opts.TopLimit = maxTopLimit
+		} else {
+			opts.TopLimit = v
+		}
+	}
+
+	summary, err := s.stats.Summarize(opts)
 	if err != nil {
 		s.logger.Printf("stats: summarize: %v", err)
 		s.writeError(w, http.StatusInternalServerError, requestID, "STATS_ERROR", "internal error", nil)

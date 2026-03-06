@@ -1,24 +1,37 @@
 import { FormEvent, useState } from "react";
 import { StatsSummary, getStats } from "./api";
 
+const RECENT_STEPS = [50, 150, 500];
+const TOP_STEPS = [10, 30, 100];
+
 export default function StatsPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState<StatsSummary | null>(null);
+  const [recentLimit, setRecentLimit] = useState(RECENT_STEPS[0]);
+  const [topLimit, setTopLimit] = useState(TOP_STEPS[0]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function fetchStats(opts?: { recent?: number; top?: number }) {
+    const rl = opts?.recent ?? recentLimit;
+    const tl = opts?.top ?? topLimit;
     setLoading(true);
     setError("");
     try {
-      const summary = await getStats(password);
+      const summary = await getStats(password, { recentLimit: rl, topLimit: tl });
       setData(summary);
+      setRecentLimit(rl);
+      setTopLimit(tl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка запроса");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    await fetchStats();
   }
 
   return (
@@ -111,7 +124,7 @@ export default function StatsPage() {
               {/* Top repos */}
               {data.topRepos.length > 0 && (
                 <StatsTable
-                  title="Топ репозиториев"
+                  title={`Топ репозиториев (${data.topRepos.length})`}
                   headers={["Репозиторий", "Запросов"]}
                   rows={data.topRepos.map((r) => [shortenUrl(r.name), String(r.count)])}
                 />
@@ -120,12 +133,22 @@ export default function StatsPage() {
               {/* Top devices */}
               {data.topDevices.length > 0 && (
                 <StatsTable
-                  title="Топ устройств"
+                  title={`Топ устройств (${data.topDevices.length})`}
                   headers={["Устройство", "Сборок"]}
                   rows={data.topDevices.map((d) => [d.name, String(d.count)])}
                 />
               )}
             </div>
+
+            {(data.topRepos.length > 0 || data.topDevices.length > 0) && (
+              <LimitSelector
+                label="Топ"
+                steps={TOP_STEPS}
+                current={topLimit}
+                loading={loading}
+                onChange={(v) => fetchStats({ top: v })}
+              />
+            )}
 
             {/* Daily summary */}
             {data.dailySummary.length > 0 && (
@@ -183,9 +206,19 @@ export default function StatsPage() {
                   boxShadow: "var(--shadow)",
                 }}
               >
-                <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600 }}>
-                  Последние события ({data.recentEvents.length})
-                </h3>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 12px" }}>
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
+                    Последние события ({data.recentEvents.length})
+                  </h3>
+                  <LimitSelector
+                    label="Показать"
+                    steps={RECENT_STEPS}
+                    current={recentLimit}
+                    loading={loading}
+                    onChange={(v) => fetchStats({ recent: v })}
+                    inline
+                  />
+                </div>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
@@ -323,6 +356,48 @@ function StatsTable({ title, headers, rows }: { title: string; headers: string[]
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function LimitSelector({
+  label,
+  steps,
+  current,
+  loading,
+  onChange,
+  inline,
+}: {
+  label: string;
+  steps: number[];
+  current: number;
+  loading: boolean;
+  onChange: (v: number) => void;
+  inline?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", ...(inline ? {} : { marginTop: -4 }) }}>
+      <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{label}:</span>
+      {steps.map((step) => (
+        <button
+          key={step}
+          disabled={loading || current === step}
+          onClick={() => onChange(step)}
+          style={{
+            background: current === step ? "var(--accent)" : "var(--surface)",
+            color: current === step ? "#fff" : "var(--ink-muted)",
+            border: current === step ? "none" : "1.5px solid var(--line)",
+            borderRadius: 8,
+            padding: "4px 10px",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: loading || current === step ? "default" : "pointer",
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {step}
+        </button>
+      ))}
     </div>
   );
 }
