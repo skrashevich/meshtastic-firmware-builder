@@ -56,3 +56,5 @@ docker-compose.*.yml
 
 # Makefile (not needed in image)
 Makefile
+
+.claude
