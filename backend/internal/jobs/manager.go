@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/buildlogs"
 	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
 )
 
@@ -21,8 +22,9 @@ var (
 )
 
 type Manager struct {
-	cfg    config.Config
-	logger *log.Logger
+	cfg       config.Config
+	logger    *log.Logger
+	buildLogs *buildlogs.Store
 
 	mu         sync.RWMutex
 	jobs       map[string]*Job
@@ -40,6 +42,7 @@ func NewManager(cfg config.Config, logger *log.Logger) *Manager {
 	mgr := &Manager{
 		cfg:        cfg,
 		logger:     logger,
+		buildLogs:  buildlogs.NewStore(cfg.BuildLogsPath),
 		jobs:       make(map[string]*Job),
 		queueOrder: make([]string, 0, 128),
 		queue:      make(chan *Job, 128),
@@ -158,6 +161,10 @@ func (m *Manager) SubscribeLogs(jobID string) (<-chan string, []string, func(), 
 	return stream, snapshot, unsubscribe, nil
 }
 
+func (m *Manager) BuildLogs() *buildlogs.Store {
+	return m.buildLogs
+}
+
 func (m *Manager) GetArtifact(jobID string, artifactID string) (Artifact, error) {
 	job, err := m.getJob(jobID)
 	if err != nil {
@@ -248,6 +255,7 @@ func (m *Manager) executeJob(job *Job) {
 	} else if cacheHit {
 		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("cache hit for commit %s, reusing %d artifacts", shortCommit(commitHash), len(cachedArtifacts)))
 		job.markSuccess(m.now(), cachedArtifacts)
+		m.saveBuildLog(job)
 		return
 	} else {
 		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("cache miss for commit %s, running build", shortCommit(commitHash)))
@@ -269,6 +277,7 @@ func (m *Manager) executeJob(job *Job) {
 		}
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			job.markCancelled(m.now(), "build cancelled")
+			m.saveBuildLog(job)
 			return
 		}
 		m.failJob(job, err)
@@ -289,11 +298,32 @@ func (m *Manager) executeJob(job *Job) {
 
 	job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("build completed, artifacts: %d", len(artifacts)))
 	job.markSuccess(m.now(), artifacts)
+	m.saveBuildLog(job)
 }
 
 func (m *Manager) failJob(job *Job, err error) {
 	job.appendLog(m.cfg.MaxLogLines, "ERROR: "+err.Error())
 	job.markFailed(m.now(), err.Error())
+	m.saveBuildLog(job)
+}
+
+func (m *Manager) saveBuildLog(job *Job) {
+	state := job.snapshot()
+	bl := buildlogs.BuildLog{
+		JobID:      state.ID,
+		RepoURL:    state.RepoURL,
+		Ref:        state.Ref,
+		Device:     state.Device,
+		Status:     string(state.Status),
+		CreatedAt:  state.CreatedAt,
+		StartedAt:  state.StartedAt,
+		FinishedAt: state.FinishedAt,
+		Error:      state.Error,
+		Lines:      job.getLogs(),
+	}
+	if err := m.buildLogs.Save(bl); err != nil {
+		m.logger.Printf("save build log %s: %v", state.ID, err)
+	}
 }
 
 func (m *Manager) cleanupLoop() {

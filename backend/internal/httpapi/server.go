@@ -75,6 +75,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method == http.MethodGet && r.URL.Path == "/api/stats/build-logs" {
+		s.handleBuildLogsList(w, r, requestID)
+		return
+	}
+
+	if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/stats/build-logs/") {
+		logID := strings.TrimPrefix(r.URL.Path, "/api/stats/build-logs/")
+		logID = strings.Trim(logID, "/")
+		if logID != "" {
+			s.handleBuildLogGet(w, r, requestID, logID)
+			return
+		}
+	}
+
 	if r.Method == http.MethodPost && r.URL.Path == "/api/repos/discover" {
 		s.handleDiscover(w, r, requestID)
 		return
@@ -119,22 +133,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request, requestID
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, requestID string) {
-	if s.cfg.StatsPassword == "" {
-		s.writeError(w, http.StatusNotFound, requestID, "NOT_FOUND", "route not found", nil)
-		return
-	}
-
-	password := ""
-	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
-		password = strings.TrimPrefix(auth, "Bearer ")
-	}
-	if password == "" {
-		password = r.URL.Query().Get("password")
-	}
-
-	if password != s.cfg.StatsPassword {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="stats"`)
-		s.writeError(w, http.StatusUnauthorized, requestID, "UNAUTHORIZED", "invalid password", nil)
+	if !s.requireStatsAuth(w, r, requestID) {
 		return
 	}
 
@@ -174,6 +173,73 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, requestID s
 		Summary:       summary,
 		FirmwareCache: &cacheInfo,
 	})
+}
+
+func (s *Server) requireStatsAuth(w http.ResponseWriter, r *http.Request, requestID string) bool {
+	if s.cfg.StatsPassword == "" {
+		s.writeError(w, http.StatusNotFound, requestID, "NOT_FOUND", "route not found", nil)
+		return false
+	}
+
+	password := ""
+	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+		password = strings.TrimPrefix(auth, "Bearer ")
+	}
+	if password == "" {
+		password = r.URL.Query().Get("password")
+	}
+
+	if password != s.cfg.StatsPassword {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="stats"`)
+		s.writeError(w, http.StatusUnauthorized, requestID, "UNAUTHORIZED", "invalid password", nil)
+		return false
+	}
+	return true
+}
+
+func (s *Server) handleBuildLogsList(w http.ResponseWriter, r *http.Request, requestID string) {
+	if !s.requireStatsAuth(w, r, requestID) {
+		return
+	}
+
+	limit := 100
+	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 {
+		if v > 500 {
+			limit = 500
+		} else {
+			limit = v
+		}
+	}
+
+	entries, err := s.manager.BuildLogs().List(limit)
+	if err != nil {
+		s.logger.Printf("build-logs: list: %v", err)
+		s.writeError(w, http.StatusInternalServerError, requestID, "BUILD_LOGS_ERROR", "internal error", nil)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
+	s.writeSuccess(w, http.StatusOK, requestID, map[string]any{"logs": entries})
+}
+
+func (s *Server) handleBuildLogGet(w http.ResponseWriter, r *http.Request, requestID string, logID string) {
+	if !s.requireStatsAuth(w, r, requestID) {
+		return
+	}
+
+	bl, err := s.manager.BuildLogs().Get(logID)
+	if err != nil {
+		s.logger.Printf("build-logs: get %s: %v", logID, err)
+		s.writeError(w, http.StatusInternalServerError, requestID, "BUILD_LOGS_ERROR", "internal error", nil)
+		return
+	}
+	if bl == nil {
+		s.writeError(w, http.StatusNotFound, requestID, "BUILD_LOG_NOT_FOUND", "build log not found", nil)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
+	s.writeSuccess(w, http.StatusOK, requestID, bl)
 }
 
 func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestID string) {

@@ -110,5 +110,19 @@
   "statsCacheArtifacts": "Files",
   "statsCacheKey": "Key",
   "statsCacheSize": "Size",
-  "statsCacheEmpty": "Cache is empty"
+  "statsCacheEmpty": "Cache is empty",
+  "statsBuildLogsTitle": "Build Logs",
+  "statsBuildLogsEmpty": "No build logs available",
+  "statsBuildLogsJob": "Job",
+  "statsBuildLogsRepo": "Repository",
+  "statsBuildLogsRef": "Ref",
+  "statsBuildLogsDevice": "Device",
+  "statsBuildLogsStatus": "Status",
+  "statsBuildLogsCreated": "Created",
+  "statsBuildLogsDuration": "Duration",
+  "statsBuildLogsLines": "Lines",
+  "statsBuildLogsView": "View",
+  "statsBuildLogsClose": "Close",
+  "statsBuildLogsLoadError": "Failed to load log",
+  "statsBuildLogsLoading": "Loading..."
 }

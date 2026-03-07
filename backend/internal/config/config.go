@@ -45,6 +45,7 @@ type Config struct {
 	FirmwareCachePath string
 	StatsPassword     string
 	StatsFilePath     string
+	BuildLogsPath     string
 	TrustProxyHeaders bool
 }
 
@@ -203,6 +204,7 @@ func Load() (Config, error) {
 		FirmwareCachePath: firmwareCachePath,
 		StatsPassword:     statsPassword,
 		StatsFilePath:     filepath.Join(workDir, "stats.jsonl"),
+		BuildLogsPath:     filepath.Join(workDir, "build-logs"),
 		TrustProxyHeaders: trustProxyHeaders,
 	}, nil
 }

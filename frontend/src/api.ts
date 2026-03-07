@@ -112,6 +112,32 @@ export interface FirmwareCacheInfo {
   entries: FirmwareCacheEntry[];
 }
 
+export interface BuildLogEntry {
+  jobId: string;
+  repoUrl: string;
+  ref?: string;
+  device: string;
+  status: string;
+  createdAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+  lineCount: number;
+}
+
+export interface BuildLog {
+  jobId: string;
+  repoUrl: string;
+  ref?: string;
+  device: string;
+  status: string;
+  createdAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+  lines: string[];
+}
+
 export interface StatsSummary {
   totalVisits: number;
   totalDiscovers: number;
@@ -239,6 +265,25 @@ export async function getStats(
   if (opts?.topLimit) params.set("topLimit", String(opts.topLimit));
   const qs = params.toString();
   return request<StatsSummary>(`/api/stats${qs ? `?${qs}` : ""}`, {
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${password}` },
+  });
+}
+
+export async function getBuildLogs(
+  password: string,
+  limit?: number,
+): Promise<BuildLogEntry[]> {
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString();
+  const result = await request<{ logs: BuildLogEntry[] }>(`/api/stats/build-logs${qs ? `?${qs}` : ""}`, {
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${password}` },
+  });
+  return result.logs;
+}
+
+export async function getBuildLog(password: string, jobId: string): Promise<BuildLog> {
+  return request<BuildLog>(`/api/stats/build-logs/${jobId}`, {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${password}` },
   });
 }

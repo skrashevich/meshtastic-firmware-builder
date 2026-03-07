@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { StatsSummary, getStats } from "./api";
+import { BuildLog, BuildLogEntry, StatsSummary, getBuildLog, getBuildLogs, getStats } from "./api";
 import { Locale, dict } from "./i18n";
 
 const RECENT_STEPS = [50, 150, 500];
@@ -13,6 +13,11 @@ export default function StatsPage() {
   const [data, setData] = useState<StatsSummary | null>(null);
   const [recentLimit, setRecentLimit] = useState(RECENT_STEPS[0]);
   const [topLimit, setTopLimit] = useState(TOP_STEPS[0]);
+  const [buildLogs, setBuildLogs] = useState<BuildLogEntry[]>([]);
+  const [buildLogsLoading, setBuildLogsLoading] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<BuildLog | null>(null);
+  const [selectedLogLoading, setSelectedLogLoading] = useState(false);
+  const [selectedLogError, setSelectedLogError] = useState("");
 
   const t = dict[locale];
 
@@ -22,8 +27,12 @@ export default function StatsPage() {
     setLoading(true);
     setError("");
     try {
-      const summary = await getStats(password, { recentLimit: rl, topLimit: tl });
+      const [summary, logs] = await Promise.all([
+        getStats(password, { recentLimit: rl, topLimit: tl }),
+        getBuildLogs(password, 100),
+      ]);
       setData(summary);
+      setBuildLogs(logs);
       setRecentLimit(rl);
       setTopLimit(tl);
     } catch (err) {
@@ -293,6 +302,210 @@ export default function StatsPage() {
               </div>
             )}
 
+            {/* Build logs */}
+            <div
+              style={{
+                background: "var(--surface)",
+                borderRadius: "var(--radius)",
+                padding: 20,
+                boxShadow: "var(--shadow)",
+              }}
+            >
+              <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600 }}>
+                {t.statsBuildLogsTitle} ({buildLogs.length})
+              </h3>
+              {buildLogs.length === 0 ? (
+                <p style={{ color: "var(--ink-muted)", margin: 0, fontSize: 13 }}>{t.statsBuildLogsEmpty}</p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1.5px solid var(--line)" }}>
+                        {[t.statsBuildLogsJob, t.statsBuildLogsRepo, t.statsBuildLogsDevice, t.statsBuildLogsStatus, t.statsBuildLogsCreated, t.statsBuildLogsDuration, t.statsBuildLogsLines, "\u00a0"].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              padding: "6px 8px",
+                              textAlign: "left",
+                              color: "var(--ink-muted)",
+                              fontWeight: 600,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {buildLogs.map((bl) => (
+                        <tr key={bl.jobId} style={{ borderBottom: "1px solid var(--line)" }}>
+                          <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono, monospace", fontSize: 11 }} title={bl.jobId}>
+                            {bl.jobId.slice(0, 8)}…
+                          </td>
+                          <td
+                            style={{
+                              padding: "5px 8px",
+                              maxWidth: 180,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                            title={bl.repoUrl}
+                          >
+                            {bl.repoUrl ? shortenUrl(bl.repoUrl) : "\u2014"}
+                          </td>
+                          <td style={{ padding: "5px 8px" }}>{bl.device}</td>
+                          <td style={{ padding: "5px 8px" }}>
+                            <BuildStatusBadge status={bl.status} />
+                          </td>
+                          <td style={{ padding: "5px 8px", whiteSpace: "nowrap" }}>
+                            {formatTs(bl.createdAt, locale)}
+                          </td>
+                          <td style={{ padding: "5px 8px", whiteSpace: "nowrap", fontFamily: "IBM Plex Mono, monospace" }}>
+                            {bl.startedAt && bl.finishedAt ? formatDuration(bl.startedAt, bl.finishedAt) : "\u2014"}
+                          </td>
+                          <td style={{ padding: "5px 8px", textAlign: "right" }}>{bl.lineCount}</td>
+                          <td style={{ padding: "5px 8px" }}>
+                            <button
+                              onClick={async () => {
+                                setSelectedLog(null);
+                                setSelectedLogError("");
+                                setSelectedLogLoading(true);
+                                try {
+                                  const log = await getBuildLog(password, bl.jobId);
+                                  setSelectedLog(log);
+                                } catch (err) {
+                                  setSelectedLogError(err instanceof Error ? err.message : t.statsBuildLogsLoadError);
+                                } finally {
+                                  setSelectedLogLoading(false);
+                                }
+                              }}
+                              disabled={selectedLogLoading}
+                              style={{
+                                background: "none",
+                                border: "1px solid var(--accent)",
+                                color: "var(--accent)",
+                                borderRadius: 6,
+                                padding: "2px 8px",
+                                fontSize: 11,
+                                cursor: selectedLogLoading ? "not-allowed" : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {t.statsBuildLogsView}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Build log viewer modal */}
+            {(selectedLog || selectedLogLoading || selectedLogError) && (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 1000,
+                  padding: 20,
+                }}
+                onClick={() => {
+                  setSelectedLog(null);
+                  setSelectedLogError("");
+                }}
+              >
+                <div
+                  style={{
+                    background: "var(--surface)",
+                    borderRadius: "var(--radius)",
+                    padding: 24,
+                    width: "100%",
+                    maxWidth: 900,
+                    maxHeight: "85vh",
+                    display: "flex",
+                    flexDirection: "column",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {selectedLogLoading && (
+                    <p style={{ color: "var(--ink-muted)", margin: 0 }}>{t.statsBuildLogsLoading}</p>
+                  )}
+                  {selectedLogError && (
+                    <p style={{ color: "var(--danger)", margin: 0 }}>{selectedLogError}</p>
+                  )}
+                  {selectedLog && (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                        <div>
+                          <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 600 }}>
+                            {t.statsBuildLogsJob}: {selectedLog.jobId.slice(0, 12)}…
+                          </h3>
+                          <div style={{ fontSize: 12, color: "var(--ink-muted)", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                            <span>{selectedLog.repoUrl ? shortenUrl(selectedLog.repoUrl) : "\u2014"}</span>
+                            <span>{selectedLog.ref || "\u2014"}</span>
+                            <span>{selectedLog.device}</span>
+                            <BuildStatusBadge status={selectedLog.status} />
+                            {selectedLog.error && (
+                              <span style={{ color: "var(--danger)" }}>{selectedLog.error}</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedLog(null);
+                            setSelectedLogError("");
+                          }}
+                          style={{
+                            background: "none",
+                            border: "1.5px solid var(--line)",
+                            borderRadius: 8,
+                            padding: "4px 12px",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            color: "var(--ink-muted)",
+                          }}
+                        >
+                          {t.statsBuildLogsClose}
+                        </button>
+                      </div>
+                      <div
+                        style={{
+                          flex: 1,
+                          overflow: "auto",
+                          background: "#1a1a2e",
+                          borderRadius: 8,
+                          padding: 12,
+                        }}
+                      >
+                        <pre
+                          style={{
+                            margin: 0,
+                            fontSize: 11,
+                            lineHeight: 1.5,
+                            fontFamily: "IBM Plex Mono, monospace",
+                            color: "#e0e0e0",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-all",
+                          }}
+                        >
+                          {selectedLog.lines.join("\n")}
+                        </pre>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Recent events */}
             {data.recentEvents.length > 0 && (
               <div
@@ -546,6 +759,47 @@ function shortenUrl(url: string): string {
   } catch {
     return url;
   }
+}
+
+const statusColors: Record<string, string> = {
+  success: "#2f9e44",
+  failed: "#e03131",
+  cancelled: "#868e96",
+  running: "#f76707",
+  queued: "#5c7cfa",
+};
+
+function BuildStatusBadge({ status }: { status: string }) {
+  const color = statusColors[status] ?? "#888";
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        background: color + "22",
+        color,
+        borderRadius: 6,
+        padding: "2px 7px",
+        fontWeight: 600,
+        fontSize: 11,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {status}
+    </span>
+  );
+}
+
+function formatDuration(start: string, end: string): string {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (isNaN(ms) || ms < 0) return "\u2014";
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
 }
 
 function formatBytes(bytes: number): string {

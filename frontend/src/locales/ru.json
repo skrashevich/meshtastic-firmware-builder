@@ -110,5 +110,19 @@
   "statsCacheArtifacts": "Файлы",
   "statsCacheKey": "Ключ",
   "statsCacheSize": "Размер",
-  "statsCacheEmpty": "Кэш пуст"
+  "statsCacheEmpty": "Кэш пуст",
+  "statsBuildLogsTitle": "Логи сборок",
+  "statsBuildLogsEmpty": "Логи сборок отсутствуют",
+  "statsBuildLogsJob": "Задача",
+  "statsBuildLogsRepo": "Репозиторий",
+  "statsBuildLogsRef": "Ref",
+  "statsBuildLogsDevice": "Устройство",
+  "statsBuildLogsStatus": "Статус",
+  "statsBuildLogsCreated": "Создано",
+  "statsBuildLogsDuration": "Длительность",
+  "statsBuildLogsLines": "Строк",
+  "statsBuildLogsView": "Просмотр",
+  "statsBuildLogsClose": "Закрыть",
+  "statsBuildLogsLoadError": "Ошибка загрузки лога",
+  "statsBuildLogsLoading": "Загрузка..."
 }
