@@ -51,6 +51,8 @@ func NewManager(cfg config.Config, logger *log.Logger) *Manager {
 		now:        func() time.Time { return time.Now().UTC() },
 	}
 
+	MigrateFirmwareCacheMetadata(cfg.FirmwareCachePath, mgr.buildLogs, logger)
+
 	for index := 0; index < cfg.ConcurrentBuilds; index++ {
 		mgr.wg.Add(1)
 		go mgr.workerLoop(index + 1)
