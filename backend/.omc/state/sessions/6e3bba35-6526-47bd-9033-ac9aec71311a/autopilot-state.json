@@ -1,0 +1,9 @@
+{
+  "active": true,
+  "started_at": "2026-03-14T01:03:55.602Z",
+  "original_prompt": "/autopilot добавь проверки, что, например, для устройства t-deck будет предложена в том числе прошивка t-deck-tft",
+  "session_id": "6e3bba35-6526-47bd-9033-ac9aec71311a",
+  "project_path": "/Users/svk/Documents/Projects.nosync/meshtastic-firmware-builder/backend",
+  "reinforcement_count": 1,
+  "last_checked_at": "2026-03-14T01:06:44.613Z"
+}

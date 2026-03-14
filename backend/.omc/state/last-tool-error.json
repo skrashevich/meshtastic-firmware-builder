@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"go test -count=1 -v ./internal/httpapi/ -run \\\"TestMatchesDeviceFamily\\\" 2>&1\",\"description\":\"Run device family matching tests\"}",
+  "error": "Exit code 1\n=== RUN   TestMatchesDeviceFamily\n=== PAUSE TestMatchesDeviceFamily\n=== CONT  TestMatchesDeviceFamily\n    launcherhub_test.go:54: matchesDeviceFamily(\"t-deck-tft\", \"t-deck-plus\") = false, want true\n--- FAIL: TestMatchesDeviceFamily (0.00s)\nFAIL\nFAIL\tgithub.com/skrashevich/meshtastic-firmware-builder/backend/internal/httpapi\t0.527s\nFAIL",
+  "timestamp": "2026-03-14T01:05:34.773Z",
+  "retry_count": 2
+}

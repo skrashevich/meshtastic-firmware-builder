@@ -109,6 +109,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method == http.MethodGet && r.URL.Path == "/api/launcherhub/firmwares" {
+		s.handleLauncherHubFirmwares(w, r, requestID)
+		return
+	}
+
+	if r.Method == http.MethodGet && r.URL.Path == "/api/launcherhub/download" {
+		s.handleLauncherHubDownload(w, r, requestID)
+		return
+	}
+
 	if strings.HasPrefix(r.URL.Path, "/api/jobs/") {
 		s.handleJobRoutes(w, r, requestID)
 		return
