@@ -58,6 +58,7 @@ type State struct {
 	Device          string      `json:"device"`
 	BuildFlags      []string    `json:"buildFlags,omitempty"`
 	LibDeps         []string    `json:"libDeps,omitempty"`
+	ClientIP        string      `json:"-"`
 	Status          Status      `json:"status"`
 	QueuePosition   *int        `json:"queuePosition,omitempty"`
 	QueueETASeconds *int        `json:"queueEtaSeconds,omitempty"`
@@ -79,6 +80,7 @@ type Job struct {
 	Device      string
 	BuildFlags  []string
 	LibDeps     []string
+	ClientIP    string
 	Status      Status
 	CreatedAt   time.Time
 	StartedAt   *time.Time
@@ -90,7 +92,7 @@ type Job struct {
 	subscribers map[chan string]struct{}
 }
 
-func newJob(id string, repoURL string, ref string, device string, options BuildOptions, workspace string, now time.Time) *Job {
+func newJob(id string, repoURL string, ref string, device string, options BuildOptions, workspace string, now time.Time, clientIP string) *Job {
 	cloned := options.clone()
 
 	return &Job{
@@ -100,6 +102,7 @@ func newJob(id string, repoURL string, ref string, device string, options BuildO
 		Device:      device,
 		BuildFlags:  cloned.BuildFlags,
 		LibDeps:     cloned.LibDeps,
+		ClientIP:    clientIP,
 		Status:      StatusQueued,
 		CreatedAt:   now,
 		Workspace:   workspace,
@@ -123,6 +126,7 @@ func (j *Job) snapshot() State {
 		Device:     j.Device,
 		BuildFlags: append([]string(nil), j.BuildFlags...),
 		LibDeps:    append([]string(nil), j.LibDeps...),
+		ClientIP:   j.ClientIP,
 		Status:     j.Status,
 		CreatedAt:  j.CreatedAt,
 		StartedAt:  copyTime(j.StartedAt),

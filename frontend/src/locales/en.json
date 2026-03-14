@@ -124,5 +124,7 @@
   "statsBuildLogsView": "View",
   "statsBuildLogsClose": "Close",
   "statsBuildLogsLoadError": "Failed to load log",
-  "statsBuildLogsLoading": "Loading..."
+  "statsBuildLogsLoading": "Loading...",
+  "statsBuildLogsIP": "IP",
+  "starSuggestion": "If this project was useful, please consider giving it a star on GitHub — it helps others find it!"
 }

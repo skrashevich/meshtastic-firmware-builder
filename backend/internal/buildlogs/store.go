@@ -16,6 +16,7 @@ type BuildLog struct {
 	RepoURL    string     `json:"repoUrl"`
 	Ref        string     `json:"ref,omitempty"`
 	Device     string     `json:"device"`
+	ClientIP   string     `json:"clientIp,omitempty"`
 	Status     string     `json:"status"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	StartedAt  *time.Time `json:"startedAt,omitempty"`
@@ -29,6 +30,7 @@ type BuildLogEntry struct {
 	RepoURL    string     `json:"repoUrl"`
 	Ref        string     `json:"ref,omitempty"`
 	Device     string     `json:"device"`
+	ClientIP   string     `json:"clientIp,omitempty"`
 	Status     string     `json:"status"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	StartedAt  *time.Time `json:"startedAt,omitempty"`
@@ -117,6 +119,7 @@ func (s *Store) List(limit int) ([]BuildLogEntry, error) {
 			RepoURL:    bl.RepoURL,
 			Ref:        bl.Ref,
 			Device:     bl.Device,
+			ClientIP:   bl.ClientIP,
 			Status:     bl.Status,
 			CreatedAt:  bl.CreatedAt,
 			StartedAt:  bl.StartedAt,

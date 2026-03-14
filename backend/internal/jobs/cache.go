@@ -33,6 +33,9 @@ type firmwareCacheKeyInput struct {
 type firmwareCacheManifest struct {
 	Version   int                     `json:"version"`
 	CreatedAt time.Time               `json:"createdAt"`
+	RepoURL   string                  `json:"repoUrl,omitempty"`
+	Ref       string                  `json:"ref,omitempty"`
+	Device    string                  `json:"device,omitempty"`
 	Artifacts []firmwareCacheArtifact `json:"artifacts"`
 }
 
@@ -132,7 +135,14 @@ func loadArtifactsFromFirmwareCache(cacheRootPath string, cacheKey string) ([]Ar
 	return artifacts, true, nil
 }
 
-func storeArtifactsInFirmwareCache(cacheRootPath string, cacheKey string, artifacts []Artifact) error {
+// FirmwareCacheMeta holds optional metadata stored alongside cached artifacts.
+type FirmwareCacheMeta struct {
+	RepoURL string
+	Ref     string
+	Device  string
+}
+
+func storeArtifactsInFirmwareCache(cacheRootPath string, cacheKey string, artifacts []Artifact, meta ...FirmwareCacheMeta) error {
 	if len(artifacts) == 0 {
 		return errors.New("no artifacts to store in firmware cache")
 	}
@@ -163,6 +173,11 @@ func storeArtifactsInFirmwareCache(cacheRootPath string, cacheKey string, artifa
 		Version:   firmwareCacheManifestVersion,
 		CreatedAt: time.Now().UTC(),
 		Artifacts: make([]firmwareCacheArtifact, 0, len(artifacts)),
+	}
+	if len(meta) > 0 {
+		manifest.RepoURL = meta[0].RepoURL
+		manifest.Ref = meta[0].Ref
+		manifest.Device = meta[0].Device
 	}
 
 	for _, artifact := range artifacts {
@@ -287,6 +302,9 @@ type FirmwareCacheArtifactInfo struct {
 type FirmwareCacheEntry struct {
 	Key       string                      `json:"key"`
 	CreatedAt time.Time                   `json:"createdAt"`
+	RepoURL   string                      `json:"repoUrl,omitempty"`
+	Ref       string                      `json:"ref,omitempty"`
+	Device    string                      `json:"device,omitempty"`
 	TotalSize int64                       `json:"totalSize"`
 	Artifacts []FirmwareCacheArtifactInfo `json:"artifacts"`
 }
@@ -347,6 +365,9 @@ func ScanFirmwareCache(cacheRootPath string) FirmwareCacheInfo {
 		result = append(result, FirmwareCacheEntry{
 			Key:       name,
 			CreatedAt: manifest.CreatedAt,
+			RepoURL:   manifest.RepoURL,
+			Ref:       manifest.Ref,
+			Device:    manifest.Device,
 			TotalSize: entrySize,
 			Artifacts: artifacts,
 		})

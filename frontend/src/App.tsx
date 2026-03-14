@@ -698,6 +698,17 @@ function MainApp() {
           )}
         </section>
 
+        {job?.status === "success" && (
+          <section className="panel reveal-4" style={{ borderLeft: "3px solid var(--accent)" }}>
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6 }}>
+              {t.starSuggestion}{" "}
+              <a href={`${repoUrl.replace(/\.git$/, "")}`} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
+                GitHub
+              </a>
+            </p>
+          </section>
+        )}
+
         <section className="panel support-panel">
           <div className="panel-head">
             <h2>{t.supportTitle}</h2>

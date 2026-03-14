@@ -249,22 +249,24 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 		return
 	}
 
+	remoteIP := clientIP(r, s.cfg.TrustProxyHeaders)
+
 	captchaSessionToken := ""
 	if s.cfg.RequireCaptcha {
 		captchaSessionToken = strings.TrimSpace(req.CaptchaSessionToken)
 		if captchaSessionToken != "" {
-			if err := s.validateCaptchaSession(r.RemoteAddr, captchaSessionToken); err != nil {
+			if err := s.validateCaptchaSession(remoteIP, captchaSessionToken); err != nil {
 				captchaSessionToken = ""
 			}
 		}
 
 		if captchaSessionToken == "" {
-			if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
+			if err := s.validateCaptcha(remoteIP, req.CaptchaID, req.CaptchaAnswer); err != nil {
 				s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
 				return
 			}
 
-			issuedSessionToken, err := s.createCaptchaSession(r.RemoteAddr)
+			issuedSessionToken, err := s.createCaptchaSession(remoteIP)
 			if err != nil {
 				s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_SESSION_FAILED", err.Error(), nil)
 				return
@@ -282,7 +284,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request, requestI
 	if s.stats != nil {
 		s.stats.Record(stats.Event{
 			Type:      stats.EventDiscover,
-			IP:        clientIP(r, s.cfg.TrustProxyHeaders),
+			IP:        remoteIP,
 			UserAgent: r.UserAgent(),
 			RepoURL:   req.RepoURL,
 			Ref:       req.Ref,
@@ -328,22 +330,24 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 		return
 	}
 
+	ip := clientIP(r, s.cfg.TrustProxyHeaders)
+
 	captchaSessionToken := ""
 	if s.cfg.RequireCaptcha {
 		captchaSessionToken = strings.TrimSpace(req.CaptchaSessionToken)
 		if captchaSessionToken != "" {
-			if err := s.validateCaptchaSession(r.RemoteAddr, captchaSessionToken); err != nil {
+			if err := s.validateCaptchaSession(ip, captchaSessionToken); err != nil {
 				captchaSessionToken = ""
 			}
 		}
 
 		if captchaSessionToken == "" {
-			if err := s.validateCaptcha(r.RemoteAddr, req.CaptchaID, req.CaptchaAnswer); err != nil {
+			if err := s.validateCaptcha(ip, req.CaptchaID, req.CaptchaAnswer); err != nil {
 				s.writeError(w, http.StatusBadRequest, requestID, "INVALID_CAPTCHA", err.Error(), nil)
 				return
 			}
 
-			issuedSessionToken, err := s.createCaptchaSession(r.RemoteAddr)
+			issuedSessionToken, err := s.createCaptchaSession(ip)
 			if err != nil {
 				s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_SESSION_FAILED", err.Error(), nil)
 				return
@@ -352,7 +356,7 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 		}
 	}
 
-	if !s.allowBuildRequest(r.RemoteAddr) {
+	if !s.allowBuildRequest(ip) {
 		s.writeError(w, http.StatusTooManyRequests, requestID, "RATE_LIMITED", "too many build requests from this client", nil)
 		return
 	}
@@ -360,7 +364,7 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 	state, err := s.manager.CreateJob(req.RepoURL, req.Ref, req.Device, jobs.BuildOptions{
 		BuildFlags: req.BuildFlags,
 		LibDeps:    req.LibDeps,
-	})
+	}, ip)
 	if err != nil {
 		s.writeError(w, http.StatusBadRequest, requestID, "INVALID_JOB", err.Error(), nil)
 		return
@@ -369,7 +373,7 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request, request
 	if s.stats != nil {
 		s.stats.Record(stats.Event{
 			Type:      stats.EventBuild,
-			IP:        clientIP(r, s.cfg.TrustProxyHeaders),
+			IP:        ip,
 			UserAgent: r.UserAgent(),
 			RepoURL:   req.RepoURL,
 			Ref:       req.Ref,
@@ -388,7 +392,7 @@ func (s *Server) handleNewCaptcha(w http.ResponseWriter, r *http.Request, reques
 		return
 	}
 
-	challenge, err := s.newCaptcha(r.RemoteAddr)
+	challenge, err := s.newCaptcha(clientIP(r, s.cfg.TrustProxyHeaders))
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, requestID, "CAPTCHA_GENERATION_FAILED", err.Error(), nil)
 		return

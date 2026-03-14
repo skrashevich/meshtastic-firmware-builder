@@ -255,7 +255,7 @@ export default function StatsPage() {
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                       <thead>
                         <tr style={{ borderBottom: "1.5px solid var(--line)" }}>
-                          {[t.statsCacheKey, t.statsCacheCreated, t.statsCacheArtifacts, t.statsCacheSize].map((h) => (
+                          {[t.statsCacheKey, t.statsBuildLogsRepo, t.statsBuildLogsDevice, t.statsCacheCreated, t.statsCacheArtifacts, t.statsCacheSize].map((h) => (
                             <th
                               key={h}
                               style={{
@@ -283,6 +283,21 @@ export default function StatsPage() {
                               title={entry.key}
                             >
                               {entry.key.slice(0, 12)}…
+                            </td>
+                            <td
+                              style={{
+                                padding: "5px 8px",
+                                maxWidth: 180,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                              title={entry.repoUrl}
+                            >
+                              {entry.repoUrl ? shortenUrl(entry.repoUrl) : "\u2014"}
+                            </td>
+                            <td style={{ padding: "5px 8px", whiteSpace: "nowrap" }}>
+                              {entry.device || "\u2014"}
                             </td>
                             <td style={{ padding: "5px 8px", whiteSpace: "nowrap" }}>
                               {formatTs(entry.createdAt, locale)}
@@ -321,7 +336,7 @@ export default function StatsPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
                       <tr style={{ borderBottom: "1.5px solid var(--line)" }}>
-                        {[t.statsBuildLogsJob, t.statsBuildLogsRepo, t.statsBuildLogsDevice, t.statsBuildLogsStatus, t.statsBuildLogsCreated, t.statsBuildLogsDuration, t.statsBuildLogsLines, "\u00a0"].map((h) => (
+                        {[t.statsBuildLogsJob, t.statsBuildLogsRepo, t.statsBuildLogsDevice, t.statsBuildLogsIP, t.statsBuildLogsStatus, t.statsBuildLogsCreated, t.statsBuildLogsDuration, t.statsBuildLogsLines, "\u00a0"].map((h) => (
                           <th
                             key={h}
                             style={{
@@ -356,6 +371,7 @@ export default function StatsPage() {
                             {bl.repoUrl ? shortenUrl(bl.repoUrl) : "\u2014"}
                           </td>
                           <td style={{ padding: "5px 8px" }}>{bl.device}</td>
+                          <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono, monospace", fontSize: 11 }}>{bl.clientIp || "\u2014"}</td>
                           <td style={{ padding: "5px 8px" }}>
                             <BuildStatusBadge status={bl.status} />
                           </td>
@@ -453,6 +469,7 @@ export default function StatsPage() {
                             <span>{selectedLog.repoUrl ? shortenUrl(selectedLog.repoUrl) : "\u2014"}</span>
                             <span>{selectedLog.ref || "\u2014"}</span>
                             <span>{selectedLog.device}</span>
+                            {selectedLog.clientIp && <span style={{ fontFamily: "IBM Plex Mono, monospace" }}>{selectedLog.clientIp}</span>}
                             <BuildStatusBadge status={selectedLog.status} />
                             {selectedLog.error && (
                               <span style={{ color: "var(--danger)" }}>{selectedLog.error}</span>

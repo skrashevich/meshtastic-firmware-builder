@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"go test ./... 2>&1\",\"description\":\"Run Go tests\"}",
+  "error": "Exit code 1\n# ./...\npattern ./...: directory prefix . does not contain main module or its selected dependencies\nFAIL\t./... [setup failed]\nFAIL",
+  "timestamp": "2026-03-13T23:38:57.913Z",
+  "retry_count": 1
+}

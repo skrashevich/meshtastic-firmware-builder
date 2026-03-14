@@ -94,7 +94,7 @@ func (m *Manager) DiscoverRefs(ctx context.Context, repoURL string) (RepoRefs, e
 	return refs, nil
 }
 
-func (m *Manager) CreateJob(repoURL string, ref string, device string, options BuildOptions) (State, error) {
+func (m *Manager) CreateJob(repoURL string, ref string, device string, options BuildOptions, clientIP string) (State, error) {
 	if err := ValidateRepoURL(repoURL); err != nil {
 		return State{}, err
 	}
@@ -116,7 +116,7 @@ func (m *Manager) CreateJob(repoURL string, ref string, device string, options B
 	}
 
 	workspace := filepath.Join(m.cfg.JobsRootPath, jobID)
-	job := newJob(jobID, repoURL, ref, device, normalizedOptions, workspace, m.now())
+	job := newJob(jobID, repoURL, ref, device, normalizedOptions, workspace, m.now(), clientIP)
 
 	m.mu.Lock()
 	m.jobs[jobID] = job
@@ -290,7 +290,11 @@ func (m *Manager) executeJob(job *Job) {
 		return
 	}
 
-	if err := storeArtifactsInFirmwareCache(m.cfg.FirmwareCachePath, cacheKey, artifacts); err != nil {
+	if err := storeArtifactsInFirmwareCache(m.cfg.FirmwareCachePath, cacheKey, artifacts, FirmwareCacheMeta{
+		RepoURL: job.RepoURL,
+		Ref:     job.Ref,
+		Device:  job.Device,
+	}); err != nil {
 		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("cache write failed for %s: %v", shortCommit(commitHash), err))
 	} else {
 		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("stored build artifacts in cache for commit %s", shortCommit(commitHash)))
@@ -314,6 +318,7 @@ func (m *Manager) saveBuildLog(job *Job) {
 		RepoURL:    state.RepoURL,
 		Ref:        state.Ref,
 		Device:     state.Device,
+		ClientIP:   state.ClientIP,
 		Status:     string(state.Status),
 		CreatedAt:  state.CreatedAt,
 		StartedAt:  state.StartedAt,

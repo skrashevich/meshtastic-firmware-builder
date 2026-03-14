@@ -102,6 +102,9 @@ export interface FirmwareCacheArtifactInfo {
 export interface FirmwareCacheEntry {
   key: string;
   createdAt: string;
+  repoUrl?: string;
+  ref?: string;
+  device?: string;
   totalSize: number;
   artifacts: FirmwareCacheArtifactInfo[];
 }
@@ -117,6 +120,7 @@ export interface BuildLogEntry {
   repoUrl: string;
   ref?: string;
   device: string;
+  clientIp?: string;
   status: string;
   createdAt: string;
   startedAt?: string;
@@ -130,6 +134,7 @@ export interface BuildLog {
   repoUrl: string;
   ref?: string;
   device: string;
+  clientIp?: string;
   status: string;
   createdAt: string;
   startedAt?: string;

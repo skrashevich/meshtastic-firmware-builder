@@ -1,0 +1,193 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1773444723959,
+  "projectRoot": "/Users/svk/Documents/Projects.nosync/meshtastic-firmware-builder",
+  "techStack": {
+    "languages": [
+      {
+        "name": "C/C++",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "Makefile"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "make build",
+    "testCommand": "make test",
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "backend": {
+      "path": "backend",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1773444723931,
+      "keyFiles": [
+        "Dockerfile",
+        "go.mod"
+      ]
+    },
+    "build-workdir": {
+      "path": "build-workdir",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1773444723939,
+      "keyFiles": [
+        "stats.jsonl"
+      ]
+    },
+    "docker": {
+      "path": "docker",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1773444723944,
+      "keyFiles": []
+    },
+    "frontend": {
+      "path": "frontend",
+      "purpose": null,
+      "fileCount": 9,
+      "lastAccessed": 1773444723948,
+      "keyFiles": [
+        "Dockerfile",
+        "index.html",
+        "nginx.conf",
+        "package-lock.json",
+        "package.json"
+      ]
+    },
+    "frontend/dist": {
+      "path": "frontend/dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 1,
+      "lastAccessed": 1773444723957,
+      "keyFiles": [
+        "index.html"
+      ]
+    },
+    "frontend/node_modules": {
+      "path": "frontend/node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 1,
+      "lastAccessed": 1773444723958,
+      "keyFiles": []
+    },
+    "frontend/public": {
+      "path": "frontend/public",
+      "purpose": "Public files",
+      "fileCount": 0,
+      "lastAccessed": 1773444723959,
+      "keyFiles": []
+    },
+    "frontend/src": {
+      "path": "frontend/src",
+      "purpose": "Source code",
+      "fileCount": 6,
+      "lastAccessed": 1773444723959,
+      "keyFiles": [
+        "App.tsx",
+        "StatsPage.tsx",
+        "api.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "backend/internal/httpapi/server.go",
+      "accessCount": 8,
+      "lastAccessed": 1773445036173,
+      "type": "file"
+    },
+    {
+      "path": "backend/internal/jobs/manager_queue_test.go",
+      "accessCount": 7,
+      "lastAccessed": 1773445080379,
+      "type": "file"
+    },
+    {
+      "path": "backend/internal/jobs/job.go",
+      "accessCount": 5,
+      "lastAccessed": 1773445007268,
+      "type": "file"
+    },
+    {
+      "path": "backend/internal/jobs/manager.go",
+      "accessCount": 5,
+      "lastAccessed": 1773445021786,
+      "type": "file"
+    },
+    {
+      "path": "frontend/src/App.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1773444935167,
+      "type": "file"
+    },
+    {
+      "path": "frontend/src/StatsPage.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1773444934303,
+      "type": "file"
+    },
+    {
+      "path": "frontend/src/api.ts",
+      "accessCount": 2,
+      "lastAccessed": 1773444970925,
+      "type": "file"
+    },
+    {
+      "path": "backend/internal/jobs/job_test.go",
+      "accessCount": 2,
+      "lastAccessed": 1773445069159,
+      "type": "file"
+    },
+    {
+      "path": "backend/internal/httpapi/captcha.go",
+      "accessCount": 1,
+      "lastAccessed": 1773444878148,
+      "type": "file"
+    },
+    {
+      "path": "backend/internal/config/config.go",
+      "accessCount": 1,
+      "lastAccessed": 1773444922468,
+      "type": "file"
+    },
+    {
+      "path": "frontend/src/locales/en.json",
+      "accessCount": 1,
+      "lastAccessed": 1773444933050,
+      "type": "file"
+    },
+    {
+      "path": "frontend/src/locales/ru.json",
+      "accessCount": 1,
+      "lastAccessed": 1773444933814,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -124,5 +124,7 @@
   "statsBuildLogsView": "Просмотр",
   "statsBuildLogsClose": "Закрыть",
   "statsBuildLogsLoadError": "Ошибка загрузки лога",
-  "statsBuildLogsLoading": "Загрузка..."
+  "statsBuildLogsLoading": "Загрузка...",
+  "statsBuildLogsIP": "IP",
+  "starSuggestion": "Если проект оказался полезен, поставьте звезду на GitHub — это поможет другим его найти!"
 }
