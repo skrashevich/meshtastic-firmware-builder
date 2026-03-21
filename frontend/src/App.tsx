@@ -71,6 +71,7 @@ function MainApp() {
   const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [error, setError] = useState("");
+  const [launcherCopied, setLauncherCopied] = useState(false);
 
   const streamRef = useRef<EventSource | null>(null);
   const refsRepoRef = useRef("");
@@ -741,6 +742,23 @@ function MainApp() {
             <a href={projectRepoUrl} target="_blank" rel="noreferrer">
               {projectRepoRef}
             </a>
+          </span>
+          <span className="launcher-url-row">
+            {t.launcherHubLabel}:{" "}
+            <code
+              className="launcher-url"
+              title={apiUrl("/api/launcherhub/firmwares")}
+              onClick={() => {
+                void navigator.clipboard.writeText(apiUrl("/api/launcherhub/firmwares")).then(() => {
+                  setLauncherCopied(true);
+                  setTimeout(() => setLauncherCopied(false), 1500);
+                });
+              }}
+              style={{ cursor: "pointer" }}
+            >
+              {apiUrl("/api/launcherhub/firmwares")}
+            </code>
+            {launcherCopied && <span className="launcher-copied">{t.launcherHubCopied}</span>}
           </span>
           {statsEnabled && <a href="/#stats" style={{ color: "var(--ink-muted)", fontSize: 11 }}>{t.footerStats}</a>}
         </footer>

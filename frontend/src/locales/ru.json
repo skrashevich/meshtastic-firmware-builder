@@ -126,5 +126,7 @@
   "statsBuildLogsLoadError": "Ошибка загрузки лога",
   "statsBuildLogsLoading": "Загрузка...",
   "statsBuildLogsIP": "IP",
-  "starSuggestion": "Если проект оказался полезен, поставьте звезду на GitHub — это поможет другим его найти!"
+  "starSuggestion": "Если проект оказался полезен, поставьте звезду на GitHub — это поможет другим его найти!",
+  "launcherHubLabel": "URL для Launcher (OTA)",
+  "launcherHubCopied": "Скопировано!"
 }

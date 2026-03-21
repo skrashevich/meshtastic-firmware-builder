@@ -126,5 +126,7 @@
   "statsBuildLogsLoadError": "Failed to load log",
   "statsBuildLogsLoading": "Loading...",
   "statsBuildLogsIP": "IP",
-  "starSuggestion": "If this project was useful, please consider giving it a star on GitHub — it helps others find it!"
+  "starSuggestion": "If this project was useful, please consider giving it a star on GitHub — it helps others find it!",
+  "launcherHubLabel": "URL for Launcher (OTA)",
+  "launcherHubCopied": "Copied!"
 }
