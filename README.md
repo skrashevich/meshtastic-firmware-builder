@@ -1,5 +1,11 @@
 # Meshtastic Firmware Builder
 
+<!-- badges:start -->
+[![GitHub stars](https://img.shields.io/github/stars/skrashevich/meshtastic-firmware-builder?style=flat-square)](https://github.com/skrashevich/meshtastic-firmware-builder/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/skrashevich/meshtastic-firmware-builder?style=flat-square)](https://github.com/skrashevich/meshtastic-firmware-builder/commits/main)
+<!-- badges:end -->
+
+
 Web application for building Meshtastic firmware from non-official fork repositories.
 
 User flow:
