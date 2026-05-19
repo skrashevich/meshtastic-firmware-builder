@@ -16,17 +16,23 @@ import {
   getJob,
   getServerHealth,
 } from "./api";
+import {
+  collectRefSuggestions,
+  errorToMessage,
+  formatQueueETA,
+  formatSize,
+  limitRefItems,
+  looksLikeRepoURL,
+  parseMultilineValues,
+  readInitialFormValues,
+  syncFormValuesToURL,
+} from "./appUtils";
 import { Locale, dict } from "./i18n";
 import StatsPage from "./StatsPage";
 
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 const captchaSessionStorageKey = "mfb.captchaSessionToken";
 const defaultRepoURL = "https://github.com/meshtastic/firmware";
-type InitialFormValues = {
-  repoUrl: string;
-  ref: string;
-  hasRefInQuery: boolean;
-};
 
 export default function App() {
   if (window.location.hash === "#stats") {
@@ -45,7 +51,10 @@ function MainApp() {
   const projectRepoRef = "github.com/skrashevich/meshtastic-firmware-builder";
 
   const [locale, setLocale] = useState<Locale>("ru");
-  const initialFormValues = useMemo(() => readInitialFormValues(defaultRepoURL), []);
+  const initialFormValues = useMemo(
+    () => readInitialFormValues(defaultRepoURL, window.location.search),
+    [],
+  );
   const [repoUrl, setRepoUrl] = useState(initialFormValues.repoUrl);
   const [ref, setRef] = useState(initialFormValues.ref);
   const [repoRefs, setRepoRefs] = useState<RepoRefsResponse | null>(null);
@@ -96,7 +105,9 @@ function MainApp() {
   }, [logs, autoScroll]);
 
   useEffect(() => {
-    syncFormValuesToURL(repoUrl, ref);
+    syncFormValuesToURL(repoUrl, ref, window.location.href, (nextURL) => {
+      window.history.replaceState(null, "", nextURL);
+    });
   }, [repoUrl, ref]);
 
   useEffect(() => {
@@ -767,143 +778,3 @@ function MainApp() {
   );
 }
 
-function errorToMessage(value: unknown, fallback: string): string {
-  if (value instanceof Error) {
-    return value.message;
-  }
-  return fallback;
-}
-
-function formatSize(size: number): string {
-  if (size < 1024) {
-    return `${size} B`;
-  }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatQueueETA(seconds: number, locale: Locale): string {
-  const totalMinutes = Math.max(1, Math.ceil(seconds / 60));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (locale === "ru") {
-    if (hours > 0 && minutes > 0) {
-      return `${hours} ч ${minutes} мин`;
-    }
-    if (hours > 0) {
-      return `${hours} ч`;
-    }
-    return `${totalMinutes} мин`;
-  }
-
-  if (hours > 0 && minutes > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  if (hours > 0) {
-    return `${hours}h`;
-  }
-  return `${totalMinutes}m`;
-}
-
-function parseMultilineValues(raw: string): string[] {
-  return raw
-    .split("\n")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-}
-
-function collectRefSuggestions(repoRefs: RepoRefsResponse | null): string[] {
-  if (!repoRefs) {
-    return [];
-  }
-
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  if (repoRefs.defaultBranch) {
-    const branch = repoRefs.defaultBranch.trim();
-    if (branch && !seen.has(branch)) {
-      seen.add(branch);
-      result.push(branch);
-    }
-  }
-
-  for (const item of repoRefs.recentBranches) {
-    if (!item.name || seen.has(item.name)) {
-      continue;
-    }
-    seen.add(item.name);
-    result.push(item.name);
-  }
-
-  for (const item of repoRefs.recentTags) {
-    if (!item.name || seen.has(item.name)) {
-      continue;
-    }
-    seen.add(item.name);
-    result.push(item.name);
-  }
-
-  return result;
-}
-
-function limitRefItems<T extends { name: string }>(items: T[], limit: number): T[] {
-  if (limit < 1 || items.length <= limit) {
-    return items;
-  }
-  return items.slice(0, limit);
-}
-
-function looksLikeRepoURL(value: string): boolean {
-  return /^(https?:\/\/|ssh:\/\/|git:\/\/|git@)/.test(value);
-}
-
-function readInitialFormValues(defaultRepo: string): InitialFormValues {
-  if (typeof window === "undefined") {
-    return { repoUrl: defaultRepo, ref: "", hasRefInQuery: false };
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  const initialRepo = (params.get("repo") ?? params.get("repoUrl") ?? "").trim();
-  const initialRef = (params.get("ref") ?? "").trim();
-
-  return {
-    repoUrl: initialRepo || defaultRepo,
-    ref: initialRef,
-    hasRefInQuery: initialRef.length > 0,
-  };
-}
-
-function syncFormValuesToURL(repoUrl: string, ref: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const url = new URL(window.location.href);
-  const params = new URLSearchParams(url.search);
-  params.delete("repoUrl");
-
-  setQueryParam(params, "repo", repoUrl.trim());
-  setQueryParam(params, "ref", ref.trim());
-
-  const currentSearch = url.searchParams.toString();
-  const nextSearch = params.toString();
-  if (currentSearch === nextSearch) {
-    return;
-  }
-
-  const searchPart = nextSearch ? `?${nextSearch}` : "";
-  const nextURL = `${url.pathname}${searchPart}${url.hash}`;
-  window.history.replaceState(null, "", nextURL);
-}
-
-function setQueryParam(params: URLSearchParams, key: string, value: string): void {
-  if (!value) {
-    params.delete(key);
-    return;
-  }
-  params.set(key, value);
-}
