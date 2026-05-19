@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 # ============================================
 # Stage 2: Frontend Build (Node + Vite)
 # ============================================
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend-builder
 
 WORKDIR /app
 
