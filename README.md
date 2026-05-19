@@ -1,4 +1,7 @@
 # Meshtastic Firmware Builder
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/skrashevich/meshtastic-firmware-builder?include_prereleases)](https://github.com/skrashevich/meshtastic-firmware-builder/releases)
+
 
 <!-- badges:start -->
 [![GitHub stars](https://img.shields.io/github/stars/skrashevich/meshtastic-firmware-builder?style=flat-square)](https://github.com/skrashevich/meshtastic-firmware-builder/stargazers)
