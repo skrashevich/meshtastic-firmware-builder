@@ -271,8 +271,22 @@ Build speed notes:
 
 ## Testing
 
-Run backend tests:
+Run all tests:
+
+```bash
+make test
+```
+
+Run backend tests only:
 
 ```bash
 make backend-test
 ```
+
+Run frontend tests only:
+
+```bash
+make frontend-test
+```
+
+Pull requests trigger GitHub Actions workflow `.github/workflows/ci.yml` with backend `go test` and frontend `typecheck` + `vitest`.
