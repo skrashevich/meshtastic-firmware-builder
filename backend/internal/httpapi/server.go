@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/buildinfo"
 	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/config"
 	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/jobs"
 	"github.com/skrashevich/meshtastic-firmware-builder/backend/internal/stats"
@@ -139,6 +140,8 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request, requestID
 		Status:          "ok",
 		CaptchaRequired: s.cfg.RequireCaptcha,
 		StatsEnabled:    s.cfg.StatsPassword != "",
+		Version:         strings.TrimSpace(buildinfo.Version),
+		Commit:          strings.TrimSpace(buildinfo.Commit),
 	})
 }
 
@@ -818,6 +821,8 @@ type healthResponse struct {
 	Status          string `json:"status"`
 	CaptchaRequired bool   `json:"captchaRequired"`
 	StatsEnabled    bool   `json:"statsEnabled"`
+	Version         string `json:"version,omitempty"`
+	Commit          string `json:"commit,omitempty"`
 }
 
 type logsResponse struct {

@@ -56,6 +56,8 @@ export default function StatsPage() {
 
   return (
     <div className="page-shell">
+      <div className="bg-orb orb-a" />
+      <div className="bg-orb orb-b" />
       <div className="layout" style={{ maxWidth: 960, margin: "0 auto", padding: "28px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <a href="/" style={{ color: "var(--accent)", textDecoration: "none", fontSize: 14 }}>
@@ -86,6 +88,7 @@ export default function StatsPage() {
               padding: 24,
               boxShadow: "var(--shadow)",
               maxWidth: 400,
+              border: "1px solid var(--line)",
             }}
           >
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -103,6 +106,8 @@ export default function StatsPage() {
                   fontSize: 14,
                   fontFamily: "inherit",
                   outline: "none",
+                  background: "rgba(4, 6, 10, 0.58)",
+                  color: "var(--ink)",
                 }}
               />
               {error && <p style={{ color: "var(--danger)", margin: 0, fontSize: 13 }}>{error}</p>}
@@ -110,9 +115,12 @@ export default function StatsPage() {
                 type="submit"
                 disabled={loading || !password}
                 style={{
-                  background: "var(--accent)",
-                  color: "#fff",
-                  border: "none",
+                  background:
+                    loading || !password
+                      ? "rgba(6, 10, 16, 0.52)"
+                      : "linear-gradient(120deg, rgba(86, 242, 194, 0.95), rgba(28, 207, 157, 0.92))",
+                  color: loading || !password ? "var(--ink-muted)" : "rgba(1, 6, 9, 0.92)",
+                  border: loading || !password ? "1px solid var(--line)" : "1px solid transparent",
                   borderRadius: 10,
                   padding: "10px 20px",
                   fontSize: 14,
@@ -146,6 +154,7 @@ export default function StatsPage() {
                     padding: "16px 20px",
                     boxShadow: "var(--shadow)",
                     borderLeft: `4px solid ${item.color}`,
+                    border: "1px solid var(--line)",
                   }}
                 >
                   <div style={{ fontSize: 28, fontWeight: 700, color: item.color }}>{item.value}</div>
@@ -192,6 +201,7 @@ export default function StatsPage() {
                   borderRadius: "var(--radius)",
                   padding: 20,
                   boxShadow: "var(--shadow)",
+                  border: "1px solid var(--line)",
                 }}
               >
                 <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600 }}>{t.statsByDay}</h3>
@@ -217,7 +227,7 @@ export default function StatsPage() {
                     <tbody>
                       {[...data.dailySummary].reverse().map((day) => (
                         <tr key={day.date} style={{ borderBottom: "1px solid var(--line)" }}>
-                          <td style={{ padding: "6px 10px", fontFamily: "IBM Plex Mono, monospace" }}>{day.date}</td>
+                          <td style={{ padding: "6px 10px", fontFamily: "var(--font-mono)" }}>{day.date}</td>
                           <td style={{ padding: "6px 10px", textAlign: "right" }}>{day.visits}</td>
                           <td style={{ padding: "6px 10px", textAlign: "right" }}>{day.discovers}</td>
                           <td style={{ padding: "6px 10px", textAlign: "right" }}>{day.builds}</td>
@@ -238,6 +248,7 @@ export default function StatsPage() {
                   borderRadius: "var(--radius)",
                   padding: 20,
                   boxShadow: "var(--shadow)",
+                    border: "1px solid var(--line)",
                 }}
               >
                 <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600 }}>
@@ -277,7 +288,7 @@ export default function StatsPage() {
                             <td
                               style={{
                                 padding: "5px 8px",
-                                fontFamily: "IBM Plex Mono, monospace",
+                                fontFamily: "var(--font-mono)",
                                 fontSize: 11,
                               }}
                               title={entry.key}
@@ -324,6 +335,7 @@ export default function StatsPage() {
                 borderRadius: "var(--radius)",
                 padding: 20,
                 boxShadow: "var(--shadow)",
+                border: "1px solid var(--line)",
               }}
             >
               <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600 }}>
@@ -355,7 +367,7 @@ export default function StatsPage() {
                     <tbody>
                       {buildLogs.map((bl) => (
                         <tr key={bl.jobId} style={{ borderBottom: "1px solid var(--line)" }}>
-                          <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono, monospace", fontSize: 11 }} title={bl.jobId}>
+                          <td style={{ padding: "5px 8px", fontFamily: "var(--font-mono)", fontSize: 11 }} title={bl.jobId}>
                             {bl.jobId.slice(0, 8)}…
                           </td>
                           <td
@@ -371,14 +383,14 @@ export default function StatsPage() {
                             {bl.repoUrl ? shortenUrl(bl.repoUrl) : "\u2014"}
                           </td>
                           <td style={{ padding: "5px 8px" }}>{bl.device}</td>
-                          <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono, monospace", fontSize: 11 }}>{bl.clientIp || "\u2014"}</td>
+                          <td style={{ padding: "5px 8px", fontFamily: "var(--font-mono)", fontSize: 11 }}>{bl.clientIp || "\u2014"}</td>
                           <td style={{ padding: "5px 8px" }}>
                             <BuildStatusBadge status={bl.status} />
                           </td>
                           <td style={{ padding: "5px 8px", whiteSpace: "nowrap" }}>
                             {formatTs(bl.createdAt, locale)}
                           </td>
-                          <td style={{ padding: "5px 8px", whiteSpace: "nowrap", fontFamily: "IBM Plex Mono, monospace" }}>
+                          <td style={{ padding: "5px 8px", whiteSpace: "nowrap", fontFamily: "var(--font-mono)" }}>
                             {bl.startedAt && bl.finishedAt ? formatDuration(bl.startedAt, bl.finishedAt) : "\u2014"}
                           </td>
                           <td style={{ padding: "5px 8px", textAlign: "right" }}>{bl.lineCount}</td>
@@ -449,6 +461,7 @@ export default function StatsPage() {
                     display: "flex",
                     flexDirection: "column",
                     boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+                    border: "1px solid var(--line)",
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -469,7 +482,7 @@ export default function StatsPage() {
                             <span>{selectedLog.repoUrl ? shortenUrl(selectedLog.repoUrl) : "\u2014"}</span>
                             <span>{selectedLog.ref || "\u2014"}</span>
                             <span>{selectedLog.device}</span>
-                            {selectedLog.clientIp && <span style={{ fontFamily: "IBM Plex Mono, monospace" }}>{selectedLog.clientIp}</span>}
+                            {selectedLog.clientIp && <span style={{ fontFamily: "var(--font-mono)" }}>{selectedLog.clientIp}</span>}
                             <BuildStatusBadge status={selectedLog.status} />
                             {selectedLog.error && (
                               <span style={{ color: "var(--danger)" }}>{selectedLog.error}</span>
@@ -508,7 +521,7 @@ export default function StatsPage() {
                             margin: 0,
                             fontSize: 11,
                             lineHeight: 1.5,
-                            fontFamily: "IBM Plex Mono, monospace",
+                            fontFamily: "var(--font-mono)",
                             color: "#e0e0e0",
                             whiteSpace: "pre-wrap",
                             wordBreak: "break-all",
@@ -531,6 +544,7 @@ export default function StatsPage() {
                   borderRadius: "var(--radius)",
                   padding: 20,
                   boxShadow: "var(--shadow)",
+                  border: "1px solid var(--line)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 12px" }}>
@@ -569,13 +583,13 @@ export default function StatsPage() {
                     <tbody>
                       {data.recentEvents.map((ev, i) => (
                         <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
-                          <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono, monospace", whiteSpace: "nowrap" }}>
+                          <td style={{ padding: "5px 8px", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
                             {formatTs(ev.ts, locale)}
                           </td>
                           <td style={{ padding: "5px 8px" }}>
                             <EventBadge type={ev.type} labels={eventLabelsI18n} />
                           </td>
-                          <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono, monospace" }}>{ev.ip}</td>
+                          <td style={{ padding: "5px 8px", fontFamily: "var(--font-mono)" }}>{ev.ip}</td>
                           <td
                             style={{
                               padding: "5px 8px",
@@ -591,7 +605,7 @@ export default function StatsPage() {
                           <td
                             style={{
                               padding: "5px 8px",
-                              fontFamily: "IBM Plex Mono, monospace",
+                              fontFamily: "var(--font-mono)",
                               maxWidth: 100,
                               overflow: "hidden",
                               textOverflow: "ellipsis",

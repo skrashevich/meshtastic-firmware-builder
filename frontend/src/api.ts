@@ -64,6 +64,8 @@ export interface ServerHealth {
   status: string;
   captchaRequired: boolean;
   statsEnabled: boolean;
+  version?: string;
+  commit?: string;
 }
 
 export interface LogsSnapshot {

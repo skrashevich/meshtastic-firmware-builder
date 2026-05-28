@@ -6,6 +6,7 @@ import {
   JobState,
   JobStatus,
   RepoRefsResponse,
+  ServerHealth,
   apiUrl,
   createBuildJob,
   createLogStream,
@@ -33,6 +34,7 @@ import StatsPage from "./StatsPage";
 const finalStatuses = new Set<JobStatus>(["success", "failed", "cancelled"]);
 const captchaSessionStorageKey = "mfb.captchaSessionToken";
 const defaultRepoURL = "https://github.com/meshtastic/firmware";
+declare const __FRONTEND_VERSION__: string;
 
 export default function App() {
   if (window.location.hash === "#stats") {
@@ -66,6 +68,7 @@ function MainApp() {
   const [captchaSessionToken, setCaptchaSessionToken] = useState("");
   const [captchaRequired, setCaptchaRequired] = useState(true);
   const [statsEnabled, setStatsEnabled] = useState(false);
+  const [health, setHealth] = useState<ServerHealth | null>(null);
   const [devices, setDevices] = useState<string[]>([]);
   const [deviceOptions, setDeviceOptions] = useState<Record<string, DiscoverBuildOptions>>({});
   const [selectedDevice, setSelectedDevice] = useState("");
@@ -169,6 +172,7 @@ function MainApp() {
           return;
         }
 
+        setHealth(health);
         const requiresCaptcha = health.captchaRequired !== false;
         setCaptchaRequired(requiresCaptcha);
         setStatsEnabled(!!health.statsEnabled);
@@ -188,6 +192,7 @@ function MainApp() {
           return;
         }
 
+        setHealth(null);
         setCaptchaRequired(true);
         if (!storedSessionToken) {
           await refreshCaptcha();
@@ -741,6 +746,15 @@ function MainApp() {
         <footer className="site-footer">
           <span>
             {t.footerAuthor}: {authorSignature}
+          </span>
+          <span>
+            FE: <span style={{ fontFamily: "var(--font-mono)" }}>v{__FRONTEND_VERSION__}</span>
+            {" • "}
+            BE:{" "}
+            <span style={{ fontFamily: "var(--font-mono)" }}>
+              {health?.version ? `v${health.version}` : "—"}
+              {health?.commit ? ` (${health.commit.slice(0, 8)})` : ""}
+            </span>
           </span>
           <span>
             GitHub:{" "}
