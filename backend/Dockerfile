@@ -6,7 +6,15 @@ COPY go.mod ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/server ./cmd/server
+ARG APP_VERSION=dev
+ARG APP_COMMIT=""
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build \
+      -ldflags="-w -s \
+        -X github.com/skrashevich/meshtastic-firmware-builder/backend/internal/buildinfo.Version=${APP_VERSION} \
+        -X github.com/skrashevich/meshtastic-firmware-builder/backend/internal/buildinfo.Commit=${APP_COMMIT}" \
+      -o /out/server \
+      ./cmd/server
 
 FROM docker:27-cli
 

@@ -2,6 +2,9 @@ services:
   backend:
     build:
       context: ./backend
+      args:
+        APP_VERSION: "${APP_VERSION:-dev}"
+        APP_COMMIT: "${APP_COMMIT:-}"
     environment:
       APP_PORT: "${APP_PORT}"
       APP_WORKDIR: "${APP_WORKDIR}"

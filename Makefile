@@ -16,3 +16,9 @@ frontend-test:
 	cd frontend && npm ci && npm run typecheck && npm test
 
 test: backend-test frontend-test
+
+.PHONY: compose-build
+compose-build:
+	APP_VERSION=$$(git describe --tags --always --dirty) \
+	APP_COMMIT=$$(git rev-parse --short=12 HEAD) \
+	docker compose build --pull
