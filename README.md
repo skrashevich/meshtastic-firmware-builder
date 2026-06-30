@@ -55,8 +55,8 @@ go run ./cmd/server
 
 ```bash
 cd frontend
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 Frontend opens on `http://localhost:5173`, backend on `http://localhost:8080`.

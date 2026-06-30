@@ -7,13 +7,13 @@ backend:
 	cd backend && go run ./cmd/server
 
 frontend:
-	cd frontend && npm install && npm run dev
+	cd frontend && bun install && bun run dev
 
 backend-test:
 	cd backend && go test ./...
 
 frontend-test:
-	cd frontend && npm ci && npm run typecheck && npm test
+	cd frontend && bun install --frozen-lockfile && bun run typecheck && bun run test
 
 test: backend-test frontend-test
 

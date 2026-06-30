@@ -14,7 +14,7 @@
 ## 1) Architecture Decision
 - [x] Backend language: Go (recommended).
   - Why: robust subprocess control, simple concurrent job orchestration, easy SSE streaming, single static binary deployment.
-- [x] Frontend: Node.js + React + Vite + TypeScript.
+- [x] Frontend: Bun + React + Vite + TypeScript.
   - Why: fast UI iteration, simple SSE client support, straightforward build-log terminal-like UI.
 - [x] API style: REST for commands/state + SSE for real-time logs.
 - [x] Storage strategy (MVP): filesystem-based job/artifact storage (no DB initially).
@@ -25,7 +25,7 @@
   - `frontend/` (React UI)
   - `build-workdir/` (temporary clones/build outputs, gitignored)
 - [x] Add root `.gitignore`, `README.md`, and env sample file.
-- [x] Add local run scripts (`make` and npm/go scripts).
+- [x] Add local run scripts (`make` and Bun/go scripts).
 
 ## 3) Backend Core (Go)
 - [x] Implement config loader (ports, workspace path, timeouts, concurrency, retention).
@@ -54,7 +54,7 @@
 - [x] Stream stdout/stderr into job log buffer and SSE broadcaster.
 - [x] Collect firmware artifacts from `.pio/build/<env>/` and register downloadable files.
 
-## 6) Frontend (Node.js)
+## 6) Frontend (Bun)
 - [x] Page 1 flow: repo URL input + "Discover devices" action.
 - [x] Render discovered environments as selectable device list.
 - [x] Start build action and show build status timeline.

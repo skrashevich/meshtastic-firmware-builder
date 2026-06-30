@@ -27,16 +27,15 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags="-w -s" -o /out/server ./cmd/server
 
 # ============================================
-# Stage 2: Frontend Build (Node + Vite)
+# Stage 2: Frontend Build (Bun + Vite)
 # ============================================
-FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM oven/bun:1.3.14-alpine AS frontend-builder
 
 WORKDIR /app
 
 # Install dependencies first (layer caching)
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci && \
-    npm cache clean --force
+COPY frontend/package.json frontend/bun.lock ./
+RUN bun install --frozen-lockfile
 
 # Copy frontend source
 COPY frontend/ ./
@@ -45,7 +44,7 @@ COPY frontend/ ./
 ARG VITE_API_BASE_URL=http://localhost:8080
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-RUN npm run build
+RUN bun run build
 
 # ============================================
 # Stage 3: Final All-in-One Image
