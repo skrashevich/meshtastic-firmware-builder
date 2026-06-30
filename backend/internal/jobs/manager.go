@@ -226,6 +226,11 @@ func (m *Manager) executeJob(job *Job) {
 		m.failJob(job, err)
 		return
 	}
+	firmwareVersion, err := resolveRepositoryVersion(ctx, repoPath)
+	if err != nil {
+		firmwareVersion = shortCommit(commitHash)
+		job.appendLog(m.cfg.MaxLogLines, fmt.Sprintf("version detection failed, using commit %s for build flag fallbacks: %v", firmwareVersion, err))
+	}
 
 	project, err := findVariantProject(repoPath, job.Device)
 	if err != nil {
@@ -264,7 +269,7 @@ func (m *Manager) executeJob(job *Job) {
 	}
 
 	if !buildOptions.IsEmpty() {
-		projectConfigPath, buildEnvName, err = prepareBuildConfigOverrides(repoPath, project.EnvName, job.ID, buildOptions)
+		projectConfigPath, buildEnvName, err = prepareBuildConfigOverrides(repoPath, project.EnvName, job.ID, firmwareVersion, buildOptions)
 		if err != nil {
 			m.failJob(job, err)
 			return

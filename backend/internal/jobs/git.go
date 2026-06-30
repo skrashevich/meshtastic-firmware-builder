@@ -74,6 +74,21 @@ func resolveRepositoryCommit(ctx context.Context, repositoryPath string) (string
 	return commit, nil
 }
 
+func resolveRepositoryVersion(ctx context.Context, repositoryPath string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", repositoryPath, "describe", "--tags", "--always", "--dirty")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("resolve repository version: %w", err)
+	}
+
+	version := strings.TrimSpace(string(output))
+	version = strings.TrimPrefix(version, "v")
+	if version == "" {
+		return "", fmt.Errorf("resolve repository version: empty git describe output")
+	}
+	return version, nil
+}
+
 func isValidCommitHash(value string) bool {
 	if len(value) < 7 || len(value) > 64 {
 		return false
