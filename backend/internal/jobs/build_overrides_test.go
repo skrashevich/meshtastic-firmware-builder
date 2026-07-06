@@ -89,6 +89,50 @@ func TestRenderBuildOverrideConfigAddsVersionFallbacksForLibOnlyOverrides(t *tes
 	}
 }
 
+func TestPrepareBuildConfigOverridesReplacesReferencedDeviceUILibDeps(t *testing.T) {
+	t.Parallel()
+
+	repoPath := t.TempDir()
+	platformioPath := filepath.Join(repoPath, "platformio.ini")
+	content := strings.Join([]string{
+		"[device-ui_base]",
+		"lib_deps =",
+		"  https://github.com/meshtastic/device-ui/archive/refs/heads/master.zip",
+		"",
+		"[env:t-deck-tft]",
+		"build_flags = -DBASE",
+		"lib_deps =",
+		"  ${device-ui_base.lib_deps}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(platformioPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write base platformio.ini: %v", err)
+	}
+
+	replacement := "https://github.com/skrashevich/device-ui/archive/refs/heads/feature/yawerty-layout.zip"
+	_, _, err := prepareBuildConfigOverrides(repoPath, "t-deck-tft", "abc123", "2.7.26.54e0d8d", BuildOptions{
+		LibDeps: []string{replacement},
+	})
+	if err != nil {
+		t.Fatalf("prepare build override config: %v", err)
+	}
+
+	patched, err := os.ReadFile(platformioPath)
+	if err != nil {
+		t.Fatalf("read patched platformio.ini: %v", err)
+	}
+	text := string(patched)
+	if !strings.Contains(text, "  "+replacement) {
+		t.Fatalf("platformio.ini missing replacement lib_dep:\n%s", text)
+	}
+	if strings.Contains(text, "  ${device-ui_base.lib_deps}") {
+		t.Fatalf("platformio.ini should replace referenced device-ui lib_dep:\n%s", text)
+	}
+	if strings.Contains(text, "  ${env:t-deck-tft.lib_deps}") {
+		t.Fatalf("generated override should not re-add inherited lib_deps after replacement:\n%s", text)
+	}
+}
+
 func TestRenderBuildOverrideConfigDoesNotDuplicateUserAppVersion(t *testing.T) {
 	t.Parallel()
 

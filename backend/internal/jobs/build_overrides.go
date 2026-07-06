@@ -21,6 +21,10 @@ func prepareBuildConfigOverrides(repoPath string, baseEnvName string, jobID stri
 	}
 
 	configAbsolutePath := filepath.Join(repoPath, "platformio.ini")
+	options, err := applyReplacementLibDeps(configAbsolutePath, baseEnvName, options)
+	if err != nil {
+		return "", "", err
+	}
 
 	content := renderBuildOverrideConfig(baseEnvName, overrideEnvName, firmwareVersion, options)
 	file, err := os.OpenFile(configAbsolutePath, os.O_APPEND|os.O_WRONLY, 0)
@@ -116,6 +120,196 @@ func meshtasticShortVersion(version string) string {
 func escapeBuildFlagValue(value string) string {
 	replacer := strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
 	return replacer.Replace(value)
+}
+
+func applyReplacementLibDeps(configPath string, baseEnvName string, options BuildOptions) (BuildOptions, error) {
+	if len(options.LibDeps) == 0 {
+		return options, nil
+	}
+
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return options, fmt.Errorf("read platformio.ini for replacement lib_deps: %w", err)
+	}
+
+	lines := strings.Split(string(content), "\n")
+	remaining := make([]string, 0, len(options.LibDeps))
+	changed := false
+	for _, value := range options.LibDeps {
+		if !isDeviceUILibDep(value) {
+			remaining = append(remaining, value)
+			continue
+		}
+
+		index := findDeviceUILibDepLine(lines, baseEnvName)
+		if index < 0 {
+			remaining = append(remaining, value)
+			continue
+		}
+
+		indent := lines[index][:len(lines[index])-len(strings.TrimLeft(lines[index], " \t"))]
+		lines[index] = indent + value
+		changed = true
+	}
+
+	if !changed {
+		return options, nil
+	}
+
+	if err := os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+		return options, fmt.Errorf("write platformio.ini replacement lib_deps: %w", err)
+	}
+
+	options.LibDeps = remaining
+	return options, nil
+}
+
+func findDeviceUILibDepLine(lines []string, baseEnvName string) int {
+	deviceUISections := findDeviceUILibDepSections(lines)
+	if index := findDeviceUILibDepLineInSection(lines, "env:"+baseEnvName, deviceUISections); index >= 0 {
+		return index
+	}
+
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, ";") || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if isDeviceUILibDep(trimmed) || strings.EqualFold(trimmed, "symlink://../device-ui/") || isLibDepsReferenceToSection(trimmed, deviceUISections) {
+			return index
+		}
+	}
+	return -1
+}
+
+func findDeviceUILibDepLineInSection(lines []string, sectionName string, deviceUISections map[string]struct{}) int {
+	inSection := false
+	currentOption := ""
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			currentOption = ""
+			continue
+		}
+		if strings.HasPrefix(trimmed, ";") || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		sectionMatch := sectionPattern.FindStringSubmatch(trimmed)
+		if len(sectionMatch) == 2 {
+			inSection = strings.EqualFold(strings.TrimSpace(sectionMatch[1]), sectionName)
+			currentOption = ""
+			continue
+		}
+		if !inSection {
+			currentOption = ""
+			continue
+		}
+
+		isContinuation := (strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")) && currentOption != ""
+		if isContinuation {
+			value := parseOptionValue(trimmed)
+			if currentOption == "lib_deps" && isReplacementLibDepLine(value, deviceUISections) {
+				return index
+			}
+			continue
+		}
+
+		key, value, ok := splitIniOption(trimmed)
+		if !ok {
+			currentOption = ""
+			continue
+		}
+		if strings.EqualFold(key, "lib_deps") {
+			currentOption = "lib_deps"
+			if isReplacementLibDepLine(parseOptionValue(value), deviceUISections) {
+				return index
+			}
+			continue
+		}
+		currentOption = ""
+	}
+	return -1
+}
+
+func findDeviceUILibDepSections(lines []string) map[string]struct{} {
+	sections := make(map[string]struct{})
+	currentSection := ""
+	currentOption := ""
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			currentOption = ""
+			continue
+		}
+		if strings.HasPrefix(trimmed, ";") || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		sectionMatch := sectionPattern.FindStringSubmatch(trimmed)
+		if len(sectionMatch) == 2 {
+			currentSection = strings.TrimSpace(sectionMatch[1])
+			currentOption = ""
+			continue
+		}
+		if currentSection == "" {
+			currentOption = ""
+			continue
+		}
+
+		isContinuation := (strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")) && currentOption != ""
+		if isContinuation {
+			value := parseOptionValue(trimmed)
+			if currentOption == "lib_deps" && isReplacementLibDep(value) {
+				sections[currentSection] = struct{}{}
+			}
+			continue
+		}
+
+		key, value, ok := splitIniOption(trimmed)
+		if !ok {
+			currentOption = ""
+			continue
+		}
+		if strings.EqualFold(key, "lib_deps") {
+			currentOption = "lib_deps"
+			if isReplacementLibDep(parseOptionValue(value)) {
+				sections[currentSection] = struct{}{}
+			}
+			continue
+		}
+		currentOption = ""
+	}
+	return sections
+}
+
+func isLibDepsReferenceToSection(value string, sections map[string]struct{}) bool {
+	trimmed := strings.TrimSpace(value)
+	if !strings.HasPrefix(trimmed, "${") || !strings.HasSuffix(trimmed, "}") {
+		return false
+	}
+
+	reference := strings.TrimSuffix(strings.TrimPrefix(trimmed, "${"), "}")
+	sectionName, optionName, ok := strings.Cut(reference, ".")
+	if !ok || !strings.EqualFold(strings.TrimSpace(optionName), "lib_deps") {
+		return false
+	}
+	_, exists := sections[strings.TrimSpace(sectionName)]
+	return exists
+}
+
+func isReplacementLibDep(value string) bool {
+	return isDeviceUILibDep(value) || strings.EqualFold(strings.TrimSpace(value), "symlink://../device-ui/")
+}
+
+func isReplacementLibDepLine(value string, deviceUISections map[string]struct{}) bool {
+	return isReplacementLibDep(value) || isLibDepsReferenceToSection(value, deviceUISections)
+}
+
+func isDeviceUILibDep(value string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	return strings.Contains(normalized, "github.com/meshtastic/device-ui") ||
+		strings.Contains(normalized, "github.com/skrashevich/device-ui")
 }
 
 func appendOverrideOption(builder *strings.Builder, optionName string, baseEnvName string, values []string) {
