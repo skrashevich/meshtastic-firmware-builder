@@ -133,6 +133,67 @@ func TestPrepareBuildConfigOverridesReplacesReferencedDeviceUILibDeps(t *testing
 	}
 }
 
+func TestPrepareBuildConfigOverridesReplacesVariantDeviceUILibDeps(t *testing.T) {
+	t.Parallel()
+
+	repoPath := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoPath, "platformio.ini"), []byte("[env]\nbuild_flags = -DBASE\n"), 0o644); err != nil {
+		t.Fatalf("write root platformio.ini: %v", err)
+	}
+
+	variantPath := filepath.Join(repoPath, "variants", "esp32s3", "t-deck")
+	if err := os.MkdirAll(variantPath, 0o755); err != nil {
+		t.Fatalf("create variant dir: %v", err)
+	}
+	variantConfigPath := filepath.Join(variantPath, "platformio.ini")
+	variantConfig := strings.Join([]string{
+		"[env:t-deck-tft]",
+		"lib_deps =",
+		"  ${env:t-deck.lib_deps}",
+		"  https://github.com/meshtastic/device-ui/archive/1c45ebc7433acb8ba3fe96a6f7deca9c43fa54cf.zip",
+		"  https://github.com/bitbank2/bb_captouch/archive/refs/tags/1.3.1.zip",
+		"",
+	}, "\n")
+	if err := os.WriteFile(variantConfigPath, []byte(variantConfig), 0o644); err != nil {
+		t.Fatalf("write variant platformio.ini: %v", err)
+	}
+
+	replacement := "https://github.com/skrashevich/device-ui/archive/refs/heads/feature/yawerty-layout.zip"
+	_, _, err := prepareBuildConfigOverrides(repoPath, "t-deck-tft", "abc123", "2.7.26.54e0d8d", BuildOptions{
+		LibDeps: []string{replacement},
+	})
+	if err != nil {
+		t.Fatalf("prepare build override config: %v", err)
+	}
+
+	patched, err := os.ReadFile(variantConfigPath)
+	if err != nil {
+		t.Fatalf("read patched variant platformio.ini: %v", err)
+	}
+	text := string(patched)
+	checks := []string{
+		"  ${env:t-deck.lib_deps}",
+		"  " + replacement,
+		"  https://github.com/bitbank2/bb_captouch/archive/refs/tags/1.3.1.zip",
+	}
+	for _, check := range checks {
+		if !strings.Contains(text, check) {
+			t.Fatalf("patched variant platformio.ini missing %q:\n%s", check, text)
+		}
+	}
+	if strings.Contains(text, "github.com/meshtastic/device-ui") {
+		t.Fatalf("patched variant platformio.ini still contains upstream device-ui:\n%s", text)
+	}
+
+	root, err := os.ReadFile(filepath.Join(repoPath, "platformio.ini"))
+	if err != nil {
+		t.Fatalf("read root platformio.ini: %v", err)
+	}
+	if strings.Contains(string(root), replacement) {
+		t.Fatalf("generated override should not append replacement after patching variant config:\n%s", string(root))
+	}
+}
+
 func TestRenderBuildOverrideConfigDoesNotDuplicateUserAppVersion(t *testing.T) {
 	t.Parallel()
 

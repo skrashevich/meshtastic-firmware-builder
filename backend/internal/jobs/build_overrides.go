@@ -21,7 +21,7 @@ func prepareBuildConfigOverrides(repoPath string, baseEnvName string, jobID stri
 	}
 
 	configAbsolutePath := filepath.Join(repoPath, "platformio.ini")
-	options, err := applyReplacementLibDeps(configAbsolutePath, baseEnvName, options)
+	options, err := applyReplacementLibDeps(repoPath, baseEnvName, options)
 	if err != nil {
 		return "", "", err
 	}
@@ -122,54 +122,102 @@ func escapeBuildFlagValue(value string) string {
 	return replacer.Replace(value)
 }
 
-func applyReplacementLibDeps(configPath string, baseEnvName string, options BuildOptions) (BuildOptions, error) {
+func applyReplacementLibDeps(repoPath string, baseEnvName string, options BuildOptions) (BuildOptions, error) {
 	if len(options.LibDeps) == 0 {
 		return options, nil
 	}
 
-	content, err := os.ReadFile(configPath)
+	configPaths, err := platformIOConfigPaths(repoPath)
 	if err != nil {
-		return options, fmt.Errorf("read platformio.ini for replacement lib_deps: %w", err)
+		return options, err
 	}
 
-	lines := strings.Split(string(content), "\n")
 	remaining := make([]string, 0, len(options.LibDeps))
-	changed := false
 	for _, value := range options.LibDeps {
 		if !isDeviceUILibDep(value) {
 			remaining = append(remaining, value)
 			continue
 		}
 
-		index := findDeviceUILibDepLine(lines, baseEnvName)
-		if index < 0 {
-			remaining = append(remaining, value)
-			continue
+		replaced, err := replaceDeviceUILibDep(configPaths, baseEnvName, value)
+		if err != nil {
+			return options, err
 		}
-
-		indent := lines[index][:len(lines[index])-len(strings.TrimLeft(lines[index], " \t"))]
-		lines[index] = indent + value
-		changed = true
-	}
-
-	if !changed {
-		return options, nil
-	}
-
-	if err := os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
-		return options, fmt.Errorf("write platformio.ini replacement lib_deps: %w", err)
+		if !replaced {
+			remaining = append(remaining, value)
+		}
 	}
 
 	options.LibDeps = remaining
 	return options, nil
 }
 
-func findDeviceUILibDepLine(lines []string, baseEnvName string) int {
-	deviceUISections := findDeviceUILibDepSections(lines)
-	if index := findDeviceUILibDepLineInSection(lines, "env:"+baseEnvName, deviceUISections); index >= 0 {
-		return index
+func platformIOConfigPaths(repoPath string) ([]string, error) {
+	var paths []string
+	if err := filepath.WalkDir(repoPath, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			switch entry.Name() {
+			case ".git", ".pio", "build", "dist", "node_modules":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if entry.Name() == "platformio.ini" {
+			paths = append(paths, path)
+		}
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("find platformio.ini files for replacement lib_deps: %w", err)
+	}
+	return paths, nil
+}
+
+func replaceDeviceUILibDep(configPaths []string, baseEnvName string, value string) (bool, error) {
+	type candidate struct {
+		path  string
+		lines []string
+		index int
 	}
 
+	var fallback *candidate
+	for _, path := range configPaths {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return false, fmt.Errorf("read platformio.ini for replacement lib_deps: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		deviceUISections := findDeviceUILibDepSections(lines)
+		if index := findDeviceUILibDepLineInSection(lines, "env:"+baseEnvName, deviceUISections); index >= 0 {
+			return writeReplacementLibDep(path, lines, index, value)
+		}
+
+		if fallback == nil {
+			if index := findDeviceUILibDepLine(lines, deviceUISections); index >= 0 {
+				fallback = &candidate{path: path, lines: lines, index: index}
+			}
+		}
+	}
+
+	if fallback == nil {
+		return false, nil
+	}
+	return writeReplacementLibDep(fallback.path, fallback.lines, fallback.index, value)
+}
+
+func writeReplacementLibDep(configPath string, lines []string, index int, value string) (bool, error) {
+	indent := lines[index][:len(lines[index])-len(strings.TrimLeft(lines[index], " \t"))]
+	lines[index] = indent + value
+	if err := os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+		return false, fmt.Errorf("write platformio.ini replacement lib_deps: %w", err)
+	}
+	return true, nil
+}
+
+func findDeviceUILibDepLine(lines []string, deviceUISections map[string]struct{}) int {
 	for index, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, ";") || strings.HasPrefix(trimmed, "#") {
