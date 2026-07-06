@@ -110,6 +110,7 @@ func TestPrepareBuildConfigOverridesReplacesReferencedDeviceUILibDeps(t *testing
 	}
 
 	replacement := "https://github.com/skrashevich/device-ui/archive/refs/heads/feature/yawerty-layout.zip"
+	cacheBustedReplacement := replacement + "?mfb=mfb-custom-abc123"
 	_, _, err := prepareBuildConfigOverrides(repoPath, "t-deck-tft", "abc123", "2.7.26.54e0d8d", BuildOptions{
 		LibDeps: []string{replacement},
 	})
@@ -122,7 +123,7 @@ func TestPrepareBuildConfigOverridesReplacesReferencedDeviceUILibDeps(t *testing
 		t.Fatalf("read patched platformio.ini: %v", err)
 	}
 	text := string(patched)
-	if !strings.Contains(text, "  "+replacement) {
+	if !strings.Contains(text, "  "+cacheBustedReplacement) {
 		t.Fatalf("platformio.ini missing replacement lib_dep:\n%s", text)
 	}
 	if strings.Contains(text, "  ${device-ui_base.lib_deps}") {
@@ -159,6 +160,7 @@ func TestPrepareBuildConfigOverridesReplacesVariantDeviceUILibDeps(t *testing.T)
 	}
 
 	replacement := "https://github.com/skrashevich/device-ui/archive/refs/heads/feature/yawerty-layout.zip"
+	cacheBustedReplacement := replacement + "?mfb=mfb-custom-abc123"
 	_, _, err := prepareBuildConfigOverrides(repoPath, "t-deck-tft", "abc123", "2.7.26.54e0d8d", BuildOptions{
 		LibDeps: []string{replacement},
 	})
@@ -173,7 +175,7 @@ func TestPrepareBuildConfigOverridesReplacesVariantDeviceUILibDeps(t *testing.T)
 	text := string(patched)
 	checks := []string{
 		"  ${env:t-deck.lib_deps}",
-		"  " + replacement,
+		"  " + cacheBustedReplacement,
 		"  https://github.com/bitbank2/bb_captouch/archive/refs/tags/1.3.1.zip",
 	}
 	for _, check := range checks {

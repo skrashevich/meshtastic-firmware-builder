@@ -21,6 +21,7 @@ func prepareBuildConfigOverrides(repoPath string, baseEnvName string, jobID stri
 	}
 
 	configAbsolutePath := filepath.Join(repoPath, "platformio.ini")
+	options = cacheBustBranchArchiveLibDeps(options, jobID)
 	options, err := applyReplacementLibDeps(repoPath, baseEnvName, options)
 	if err != nil {
 		return "", "", err
@@ -120,6 +121,33 @@ func meshtasticShortVersion(version string) string {
 func escapeBuildFlagValue(value string) string {
 	replacer := strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
 	return replacer.Replace(value)
+}
+
+func cacheBustBranchArchiveLibDeps(options BuildOptions, jobID string) BuildOptions {
+	if len(options.LibDeps) == 0 {
+		return options
+	}
+
+	libDeps := make([]string, 0, len(options.LibDeps))
+	for _, value := range options.LibDeps {
+		libDeps = append(libDeps, cacheBustBranchArchiveURL(value, jobID))
+	}
+	options.LibDeps = libDeps
+	return options
+}
+
+func cacheBustBranchArchiveURL(value string, jobID string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || strings.Contains(trimmed, "?") || !strings.Contains(trimmed, "/archive/refs/heads/") ||
+		!strings.HasSuffix(strings.ToLower(trimmed), ".zip") {
+		return value
+	}
+
+	cacheKey := buildOverrideEnvName(jobID)
+	if cacheKey == "mfb-custom" {
+		return value
+	}
+	return value + "?mfb=" + cacheKey
 }
 
 func applyReplacementLibDeps(repoPath string, baseEnvName string, options BuildOptions) (BuildOptions, error) {
