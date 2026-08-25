@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 # ============================================
 # Stage 2: Frontend Build (Bun + Vite)
 # ============================================
-FROM --platform=$BUILDPLATFORM oven/bun:1.3.14-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.0-alpine AS frontend-builder
 
 WORKDIR /app
 
